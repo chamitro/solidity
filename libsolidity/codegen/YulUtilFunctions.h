@@ -286,9 +286,14 @@ public:
 	/// signature: (length) -> memPtr
 	std::string allocateAndInitializeMemoryArrayFunction(ArrayType const& _type);
 
+	/// @returns the name of a function that allocates a memory struct (no
+	/// initialization takes place).
+	/// signature: () -> memPtr
+	std::string allocateMemoryStructFunction(StructType const& _type);
+
 	/// @returns the name of a function that allocates and zeroes a memory struct.
-	/// signature: (members) -> memPtr
-	std::string allocateAndInitializeMemoryStructFunction(StructType const& _type);
+	/// signature: () -> memPtr
+	std::string allocateAndInitializeMemoryStructFunctionZero(StructType const& _type);
 
 	/// @returns the name of the function that converts a value of type @a _from
 	/// to a value of type @a _to. The resulting vale is guaranteed to be in range

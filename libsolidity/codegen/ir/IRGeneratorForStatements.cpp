@@ -600,22 +600,30 @@ bool IRGeneratorForStatements::visit(FunctionCall const& _functionCall)
 void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 {
 	solUnimplementedAssert(
-		_functionCall.annotation().kind == FunctionCallKind::FunctionCall ||
-		_functionCall.annotation().kind == FunctionCallKind::TypeConversion,
+		_functionCall.annotation().kind != FunctionCallKind::Unset,
 		"This type of function call is not yet implemented"
 	);
 
-	Type const& funcType = type(_functionCall.expression());
+	Type const* funcType;
+
+	if (_functionCall.annotation().kind == FunctionCallKind::StructConstructorCall)
+	{
+		auto const& type = dynamic_cast<TypeType const&>(*_functionCall.expression().annotation().type);
+		auto const& structType = dynamic_cast<StructType const&>(*type.actualType());
+		funcType = structType.constructorType();
+	}
+	else
+		funcType = _functionCall.expression().annotation().type;
 
 	if (_functionCall.annotation().kind == FunctionCallKind::TypeConversion)
 	{
-		solAssert(funcType.category() == Type::Category::TypeType, "Expected category to be TypeType");
+		solAssert(funcType->category() == Type::Category::TypeType, "Expected category to be TypeType");
 		solAssert(_functionCall.arguments().size() == 1, "Expected one argument for type conversion");
 		define(_functionCall, *_functionCall.arguments().front());
 		return;
 	}
 
-	FunctionTypePointer functionType = dynamic_cast<FunctionType const*>(&funcType);
+	FunctionTypePointer functionType = dynamic_cast<FunctionType const*>(funcType);
 
 	TypePointers parameterTypes = functionType->parameterTypes();
 	vector<ASTPointer<Expression const>> const& callArguments = _functionCall.arguments();
@@ -691,7 +699,33 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 		for (size_t i = 0; i < arguments.size(); ++i)
 			args += convert(*arguments[i], *parameterTypes[i]).stackSlots();
 
-		if (functionDef)
+		if (_functionCall.annotation().kind == FunctionCallKind::StructConstructorCall)
+		{
+			TypeType const& type = dynamic_cast<TypeType const&>(*_functionCall.expression().annotation().type);
+			auto const& structType = dynamic_cast<StructType const&>(*type.actualType());
+
+			string const structVar = m_context.newYulVariable();
+			vector<map<string, string>> members(args.size());
+			for (size_t i = 0; i < members.size(); i++)
+				members[i]["var"] = args[i];
+
+			m_code << Whiskers(R"(
+				let <struct> := <structAlloc>()
+				let <offset> := <struct>
+				<#member>
+					mstore(<offset>, <var>)
+					<offset> := add(<offset>, 32)
+				</member>
+			)")
+			("struct", structVar)
+			("structAlloc", m_utils.allocateMemoryStructFunction(structType))
+			("offset", m_context.newYulVariable())
+			("member", members)
+			.render();
+
+			define(_functionCall) << structVar << "\n";
+		}
+		else if (functionDef)
 			define(_functionCall) <<
 				m_context.enqueueFunctionForCodeGeneration(*functionDef) <<
 				"(" <<
