@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	uint[][] a;
 	function f(uint[] memory x, uint y) public {
@@ -9,6 +7,10 @@ contract C {
 		assert(a[0][a[0].length - 1] == y);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreCex: yes
 // ----
-// Warning 4144: (162-177): Underflow (resulting value less than 0) happens here
-// Warning 4661: (150-184): Assertion violation happens here
+// Warning 3944: (129-144): CHC: Underflow (resulting value less than 0) happens here.
+// Warning 6328: (117-151): CHC: Assertion violation happens here.
+// Info 1391: CHC: 6 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

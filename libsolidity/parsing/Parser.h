@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Christian <c@ethdev.com>
  * @date 2014
@@ -28,7 +29,7 @@
 
 namespace solidity::langutil
 {
-class Scanner;
+class CharStream;
 }
 
 namespace solidity::frontend
@@ -40,25 +41,27 @@ public:
 	explicit Parser(
 		langutil::ErrorReporter& _errorReporter,
 		langutil::EVMVersion _evmVersion,
-		bool _errorRecovery = false
+		std::optional<uint8_t> _eofVersion
 	):
-		ParserBase(_errorReporter, _errorRecovery),
-		m_evmVersion(_evmVersion)
+		ParserBase(_errorReporter),
+		m_evmVersion(_evmVersion),
+		m_eofVersion(_eofVersion)
 	{}
 
-	ASTPointer<SourceUnit> parse(std::shared_ptr<langutil::Scanner> const& _scanner);
+	ASTPointer<SourceUnit> parse(langutil::CharStream& _charStream);
 
+	/// Returns the maximal AST node ID assigned so far
+	int64_t maxID() const { return m_currentNodeID; }
 private:
 	class ASTNodeFactory;
 
+	enum class VarDeclKind { FileLevel, State, Other };
 	struct VarDeclParserOptions
 	{
 		// This is actually not needed, but due to a defect in the C++ standard, we have to.
 		// https://stackoverflow.com/questions/17430377
 		VarDeclParserOptions() {}
-
-		bool allowVar = false;
-		bool isStateVariable = false;
+		VarDeclKind kind = VarDeclKind::Other;
 		bool allowIndexed = false;
 		bool allowEmptyName = false;
 		bool allowInitialValue = false;
@@ -75,13 +78,22 @@ private:
 		Visibility visibility = Visibility::Default;
 		StateMutability stateMutability = StateMutability::NonPayable;
 		std::vector<ASTPointer<ModifierInvocation>> modifiers;
+		ASTPointer<Expression> experimentalReturnExpression;
+	};
+
+	/// Struct to share parsed function call arguments.
+	struct FunctionCallArguments
+	{
+		std::vector<ASTPointer<Expression>> arguments;
+		std::vector<ASTPointer<ASTString>> parameterNames;
+		std::vector<langutil::SourceLocation> parameterNameLocations;
 	};
 
 	///@{
 	///@name Parsing functions for the AST nodes
 	void parsePragmaVersion(langutil::SourceLocation const& _location, std::vector<Token> const& _tokens, std::vector<std::string> const& _literals);
 	ASTPointer<StructuredDocumentation> parseStructuredDocumentation();
-	ASTPointer<PragmaDirective> parsePragmaDirective();
+	ASTPointer<PragmaDirective> parsePragmaDirective(bool _finishedParsingTopLevelPragmas);
 	ASTPointer<ImportDirective> parseImportDirective();
 	/// @returns an std::pair<ContractKind, bool>, where
 	/// result.second is set to true, if an abstract contract was parsed, false otherwise.
@@ -92,9 +104,11 @@ private:
 	ASTPointer<OverrideSpecifier> parseOverrideSpecifier();
 	StateMutability parseStateMutability();
 	FunctionHeaderParserResult parseFunctionHeader(bool _isStateVariable);
-	ASTPointer<ASTNode> parseFunctionDefinition();
+	ASTPointer<ForAllQuantifier> parseQuantifiedFunctionDefinition();
+	ASTPointer<FunctionDefinition> parseFunctionDefinition(bool _freeFunction = false, bool _allowBody = true);
 	ASTPointer<StructDefinition> parseStructDefinition();
 	ASTPointer<EnumDefinition> parseEnumDefinition();
+	ASTPointer<UserDefinedValueTypeDefinition> parseUserDefinedValueTypeDefinition();
 	ASTPointer<EnumValue> parseEnumValue();
 	ASTPointer<VariableDeclaration> parseVariableDeclaration(
 		VarDeclParserOptions const& _options = {},
@@ -102,20 +116,23 @@ private:
 	);
 	ASTPointer<ModifierDefinition> parseModifierDefinition();
 	ASTPointer<EventDefinition> parseEventDefinition();
+	ASTPointer<ErrorDefinition> parseErrorDefinition();
 	ASTPointer<UsingForDirective> parseUsingDirective();
 	ASTPointer<ModifierInvocation> parseModifierInvocation();
 	ASTPointer<Identifier> parseIdentifier();
+	ASTPointer<Identifier> parseIdentifierOrAddress();
 	ASTPointer<UserDefinedTypeName> parseUserDefinedTypeName();
+	ASTPointer<IdentifierPath> parseIdentifierPath();
 	ASTPointer<TypeName> parseTypeNameSuffix(ASTPointer<TypeName> type, ASTNodeFactory& nodeFactory);
-	ASTPointer<TypeName> parseTypeName(bool _allowVar);
+	ASTPointer<TypeName> parseTypeName();
 	ASTPointer<FunctionTypeName> parseFunctionType();
 	ASTPointer<Mapping> parseMapping();
 	ASTPointer<ParameterList> parseParameterList(
 		VarDeclParserOptions const& _options = {},
 		bool _allowEmpty = true
 	);
-	ASTPointer<Block> parseBlock(ASTPointer<ASTString> const& _docString = {});
-	ASTPointer<Statement> parseStatement();
+	ASTPointer<Block> parseBlock(bool _allowUncheckedBlock = false, ASTPointer<ASTString> const& _docString = {});
+	ASTPointer<Statement> parseStatement(bool _allowUncheckedBlock = false);
 	ASTPointer<InlineAssembly> parseInlineAssembly(ASTPointer<ASTString> const& _docString = {});
 	ASTPointer<IfStatement> parseIfStatement(ASTPointer<ASTString> const& _docString);
 	ASTPointer<TryStatement> parseTryStatement(ASTPointer<ASTString> const& _docString);
@@ -124,6 +141,7 @@ private:
 	ASTPointer<WhileStatement> parseDoWhileStatement(ASTPointer<ASTString> const& _docString);
 	ASTPointer<ForStatement> parseForStatement(ASTPointer<ASTString> const& _docString);
 	ASTPointer<EmitStatement> parseEmitStatement(ASTPointer<ASTString> const& docString);
+	ASTPointer<RevertStatement> parseRevertStatement(ASTPointer<ASTString> const& docString);
 	/// A "simple statement" can be a variable declaration statement or an expression statement.
 	ASTPointer<Statement> parseSimpleStatement(ASTPointer<ASTString> const& _docString);
 	ASTPointer<VariableDeclarationStatement> parseVariableDeclarationStatement(
@@ -146,14 +164,32 @@ private:
 	ASTPointer<Expression> parseLeftHandSideExpression(
 		ASTPointer<Expression> const& _partiallyParsedExpression = ASTPointer<Expression>()
 	);
+	ASTPointer<Expression> parseLiteral();
 	ASTPointer<Expression> parsePrimaryExpression();
 	std::vector<ASTPointer<Expression>> parseFunctionCallListArguments();
-	std::pair<std::vector<ASTPointer<Expression>>, std::vector<ASTPointer<ASTString>>> parseFunctionCallArguments();
-	std::pair<std::vector<ASTPointer<Expression>>, std::vector<ASTPointer<ASTString>>> parseNamedArguments();
+
+	FunctionCallArguments parseFunctionCallArguments();
+	FunctionCallArguments parseNamedArguments();
+	std::pair<ASTPointer<ASTString>, langutil::SourceLocation> expectIdentifierWithLocation();
+	///@}
+
+	///@{
+	///@name Specialized parsing functions for the AST nodes of experimental solidity.
+	ASTPointer<VariableDeclarationStatement> parsePostfixVariableDeclarationStatement(
+		ASTPointer<ASTString> const& _docString
+	);
+	ASTPointer<VariableDeclaration> parsePostfixVariableDeclaration();
+	ASTPointer<TypeClassDefinition> parseTypeClassDefinition();
+	ASTPointer<TypeClassInstantiation> parseTypeClassInstantiation();
+	ASTPointer<TypeDefinition> parseTypeDefinition();
+	ASTPointer<TypeClassName> parseTypeClassName();
 	///@}
 
 	///@{
 	///@name Helper functions
+
+	/// @return true if we are at the start of a variable declaration.
+	bool variableDeclarationStart();
 
 	/// Used as return value of @see peekStatementType.
 	enum class LookAheadInfo
@@ -189,15 +225,23 @@ private:
 	/// or an expression;
 	IndexAccessedPath parseIndexAccessedPath();
 	/// @returns a typename parsed in look-ahead fashion from something like "a.b[8][2**70]",
-	/// or an empty pointer if an empty @a _pathAndIncides has been supplied.
+	/// or an empty pointer if an empty @a _pathAndIndices has been supplied.
 	ASTPointer<TypeName> typeNameFromIndexAccessStructure(IndexAccessedPath const& _pathAndIndices);
 	/// @returns an expression parsed in look-ahead fashion from something like "a.b[8][2**70]",
-	/// or an empty pointer if an empty @a _pathAndIncides has been supplied.
+	/// or an empty pointer if an empty @a _pathAndIndices has been supplied.
 	ASTPointer<Expression> expressionFromIndexAccessStructure(IndexAccessedPath const& _pathAndIndices);
 
 	ASTPointer<ASTString> expectIdentifierToken();
+	ASTPointer<ASTString> expectIdentifierTokenOrAddress();
 	ASTPointer<ASTString> getLiteralAndAdvance();
 	///@}
+
+	bool isQuotedPath() const;
+	bool isStdlibPath() const;
+
+	int tokenPrecedence(Token _token) const;
+
+	ASTPointer<ASTString> getStdlibImportPathAndAdvance();
 
 	/// Creates an empty ParameterList at the current location (used if parameters can be omitted).
 	ASTPointer<ParameterList> createEmptyParameterList();
@@ -205,8 +249,11 @@ private:
 	/// Flag that signifies whether '_' is parsed as a PlaceholderStatement or a regular identifier.
 	bool m_insideModifier = false;
 	langutil::EVMVersion m_evmVersion;
+	std::optional<uint8_t> m_eofVersion;
 	/// Counter for the next AST node ID
 	int64_t m_currentNodeID = 0;
+	/// Flag that indicates whether experimental mode is enabled in the current source unit
+	bool m_experimentalSolidityEnabledInCurrentSourceUnit = false;
 };
 
 }

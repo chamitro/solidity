@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file KnownState.h
  * @author Christian <c@ethdev.com>
@@ -23,20 +24,22 @@
 
 #pragma once
 
-#include <utility>
-#include <vector>
-#include <map>
-#include <set>
-#include <tuple>
-#include <memory>
-#include <ostream>
-
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wredeclared-class-member"
 #endif // defined(__clang__)
 
+// Disable warning about nodiscard. Could be a compiler bug, might be removed in the future.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4834)
+#endif
+
 #include <boost/bimap.hpp>
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
@@ -46,6 +49,15 @@
 #include <libsolutil/Exceptions.h>
 #include <libevmasm/ExpressionClasses.h>
 #include <libevmasm/SemanticInformation.h>
+
+#include <limits>
+#include <utility>
+#include <vector>
+#include <map>
+#include <set>
+#include <tuple>
+#include <memory>
+#include <ostream>
 
 namespace solidity::langutil
 {
@@ -97,12 +109,14 @@ public:
 
 	/// Resets any knowledge about storage.
 	void resetStorage() { m_storageContent.clear(); }
-	/// Resets any knowledge about storage.
+	/// Resets any knowledge about memory.
 	void resetMemory() { m_memoryContent.clear(); }
+	/// Resets known Keccak-256 hashes
+	void resetKnownKeccak256Hashes() { m_knownKeccak256Hashes.clear(); }
 	/// Resets any knowledge about the current stack.
 	void resetStack() { m_stackElements.clear(); m_stackHeight = 0; }
 	/// Resets any knowledge.
-	void reset() { resetStorage(); resetMemory(); resetStack(); }
+	void reset() { resetStorage(); resetMemory(); resetKnownKeccak256Hashes(); resetStack(); }
 
 	unsigned sequenceNumber() const { return m_sequenceNumber; }
 
@@ -118,11 +132,11 @@ public:
 	/// @returns true if the knowledge about the state of both objects is (known to be) equal.
 	bool operator==(KnownState const& _other) const;
 
-	/// Retrieves the current equivalence class fo the given stack element (or generates a new
+	/// Retrieves the current equivalence class for the given stack element (or generates a new
 	/// one if it does not exist yet).
-	Id stackElement(int _stackHeight, langutil::SourceLocation const& _location);
+	Id stackElement(int _stackHeight, langutil::DebugData::ConstPtr _debugData);
 	/// @returns the stackElement relative to the current stack height.
-	Id relativeStackElement(int _stackOffset, langutil::SourceLocation const& _location = {});
+	Id relativeStackElement(int _stackOffset, langutil::DebugData::ConstPtr _debugData = {});
 
 	/// @returns its set of tags if the given expression class is a known tag union; returns a set
 	/// containing the tag if it is a PushTag expression and the empty set otherwise.
@@ -141,22 +155,22 @@ private:
 	/// Assigns a new equivalence class to the next sequence number of the given stack element.
 	void setStackElement(int _stackHeight, Id _class);
 	/// Swaps the given stack elements in their next sequence number.
-	void swapStackElements(int _stackHeightA, int _stackHeightB, langutil::SourceLocation const& _location);
+	void swapStackElements(int _stackHeightA, int _stackHeightB, langutil::DebugData::ConstPtr _debugData);
 
 	/// Increments the sequence number, deletes all storage information that might be overwritten
 	/// and stores the new value at the given slot.
 	/// @returns the store operation, which might be invalid if storage was not modified
-	StoreOperation storeInStorage(Id _slot, Id _value, langutil::SourceLocation const& _location);
+	StoreOperation storeInStorage(Id _slot, Id _value,langutil::DebugData::ConstPtr _debugData);
 	/// Retrieves the current value at the given slot in storage or creates a new special sload class.
-	Id loadFromStorage(Id _slot, langutil::SourceLocation const& _location);
+	Id loadFromStorage(Id _slot, langutil::DebugData::ConstPtr _debugData);
 	/// Increments the sequence number, deletes all memory information that might be overwritten
 	/// and stores the new value at the given slot.
 	/// @returns the store operation, which might be invalid if memory was not modified
-	StoreOperation storeInMemory(Id _slot, Id _value, langutil::SourceLocation const& _location);
+	StoreOperation storeInMemory(Id _slot, Id _value, langutil::DebugData::ConstPtr _debugData);
 	/// Retrieves the current value at the given slot in memory or creates a new special mload class.
-	Id loadFromMemory(Id _slot, langutil::SourceLocation const& _location);
+	Id loadFromMemory(Id _slot, langutil::DebugData::ConstPtr _debugData);
 	/// Finds or creates a new expression that applies the Keccak-256 hash function to the contents in memory.
-	Id applyKeccak256(Id _start, Id _length, langutil::SourceLocation const& _location);
+	Id applyKeccak256(Id _start, Id _length, langutil::DebugData::ConstPtr _debugData);
 
 	/// @returns a new or already used Id representing the given set of tags.
 	Id tagUnion(std::set<u256> _tags);
@@ -172,8 +186,10 @@ private:
 	/// Knowledge about memory content. Keys are memory addresses, note that the values overlap
 	/// and are not contained here if they are not completely known.
 	std::map<Id, Id> m_memoryContent;
-	/// Keeps record of all Keccak-256 hashes that are computed.
-	std::map<std::vector<Id>, Id> m_knownKeccak256Hashes;
+	/// Keeps record of all Keccak-256 hashes that are computed. The first parameter in the
+	/// std::pair corresponds to memory content and the second parameter corresponds to the length
+	/// that is accessed.
+	std::map<std::pair<std::vector<Id>, unsigned>, Id> m_knownKeccak256Hashes;
 	/// Structure containing the classes of equivalent expressions.
 	std::shared_ptr<ExpressionClasses> m_expressionClasses;
 	/// Container for unions of tags stored on the stack.

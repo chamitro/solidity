@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	uint x;
@@ -13,13 +11,15 @@ contract C
 
 	function f() m public {
 		assert(x > 0);
-		x = x + 1;
+		unchecked { x = x + 1; }
 	}
 
 	function g(uint _x) public {
 		x = _x;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2661: (203-208): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 4661: (136-149): Assertion violation happens here
+// Warning 6328: (103-116): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

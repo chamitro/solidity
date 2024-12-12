@@ -14,8 +14,5 @@ contract Derived is Base {
         return 2;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 2

@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file ExpressionClasses.h
  * @author Christian <c@ethdev.com>
@@ -23,13 +24,13 @@
 
 #pragma once
 
-#include <libsolutil/Common.h>
 #include <libevmasm/AssemblyItem.h>
 
-#include <vector>
-#include <map>
+#include <libsolutil/Common.h>
+
 #include <memory>
-#include <set>
+#include <unordered_set>
+#include <vector>
 
 namespace solidity::langutil
 {
@@ -60,8 +61,14 @@ public:
 		/// Storage modification sequence, only used for storage and memory operations.
 		unsigned sequenceNumber = 0;
 		/// Behaves as if this was a tuple of (item->type(), item->data(), arguments, sequenceNumber).
-		bool operator<(Expression const& _other) const;
+		bool operator==(Expression const& _other) const;
+
+		struct ExpressionHash
+		{
+			std::size_t operator()(Expression const& _expression) const;
+		};
 	};
+
 
 	/// Retrieves the id of the expression equivalence class resulting from the given item applied to the
 	/// given classes, might also create a new one.
@@ -77,7 +84,7 @@ public:
 	/// @returns the canonical representative of an expression class.
 	Expression const& representative(Id _id) const { return m_representatives.at(_id); }
 	/// @returns the number of classes.
-	Id size() const { return m_representatives.size(); }
+	size_t size() const { return m_representatives.size(); }
 
 	/// Forces the given @a _item with @a _arguments to the class @a _id. This can be used to
 	/// add prior knowledge e.g. about CALLDATA, but has to be used with caution. Will not work as
@@ -85,7 +92,7 @@ public:
 	void forceEqual(Id _id, AssemblyItem const& _item, Ids const& _arguments, bool _copyItem = true);
 
 	/// @returns the id of a new class which is different to all other classes.
-	Id newClass(langutil::SourceLocation const& _location);
+	Id newClass(langutil::DebugData::ConstPtr _debugData);
 
 	/// @returns true if the values of the given classes are known to be different (on every input).
 	/// @note that this function might still return false for some different inputs.
@@ -121,7 +128,7 @@ private:
 	/// Expression equivalence class representatives - we only store one item of an equivalence.
 	std::vector<Expression> m_representatives;
 	/// All expression ever encountered.
-	std::set<Expression> m_expressions;
+	std::unordered_set<Expression, Expression::ExpressionHash> m_expressions;
 	std::vector<std::shared_ptr<AssemblyItem>> m_spareAssemblyItems;
 };
 

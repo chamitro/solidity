@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
@@ -57,7 +58,7 @@ public:
 
 	/// Converts a given elementary type name with optional data location
 	/// suffix " storage", " calldata" or " memory" to a type pointer. If suffix not given, defaults to " storage".
-	static TypePointer fromElementaryTypeName(std::string const& _name);
+	static Type const* fromElementaryTypeName(std::string const& _name);
 
 	/// @returns boolean type.
 	static BoolType const* boolean() noexcept { return &m_boolean; }
@@ -96,6 +97,7 @@ public:
 	static IntegerType const* uint(unsigned _bits) { return integer(_bits, IntegerType::Modifier::Unsigned); }
 
 	static IntegerType const* uint256() { return uint(256); }
+	static IntegerType const* int256() { return integer(256, IntegerType::Modifier::Signed); }
 
 	static FixedPointType const* fixedPoint(unsigned m, unsigned n, FixedPointType::Modifier _modifier);
 
@@ -137,6 +139,8 @@ public:
 	/// @returns the function type of an event.
 	static FunctionType const* function(EventDefinition const& _event);
 
+	static FunctionType const* function(ErrorDefinition const& _error);
+
 	/// @returns the type of a function type name.
 	static FunctionType const* function(FunctionTypeName const& _typeName);
 
@@ -145,8 +149,8 @@ public:
 		strings const& _parameterTypes,
 		strings const& _returnParameterTypes,
 		FunctionType::Kind _kind = FunctionType::Kind::Internal,
-		bool _arbitraryParameters = false,
-		StateMutability _stateMutability = StateMutability::NonPayable
+		StateMutability _stateMutability = StateMutability::NonPayable,
+		FunctionType::Options _options = {}
 	);
 
 	/// @returns a highly customized FunctionType, use with care.
@@ -156,18 +160,14 @@ public:
 		strings _parameterNames = strings{},
 		strings _returnParameterNames = strings{},
 		FunctionType::Kind _kind = FunctionType::Kind::Internal,
-		bool _arbitraryParameters = false,
 		StateMutability _stateMutability = StateMutability::NonPayable,
 		Declaration const* _declaration = nullptr,
-		bool _gasSet = false,
-		bool _valueSet = false,
-		bool _bound = false,
-		bool _saltSet = false
+		FunctionType::Options _options = {}
 	);
 
 	/// Auto-detect the proper type for a literal. @returns an empty pointer if the literal does
 	/// not fit any type.
-	static TypePointer forLiteral(Literal const& _literal);
+	static Type const* forLiteral(Literal const& _literal);
 	static RationalNumberType const* rationalNumber(Literal const& _literal);
 
 	static RationalNumberType const* rationalNumber(
@@ -195,7 +195,9 @@ public:
 
 	static MagicType const* meta(Type const* _type);
 
-	static MappingType const* mapping(Type const* _keyType, Type const* _valueType);
+	static MappingType const* mapping(Type const* _keyType, ASTString _keyName, Type const* _valueType, ASTString _valueName);
+
+	static UserDefinedValueType const* userDefinedValueType(UserDefinedValueTypeDefinition const& _definition);
 
 private:
 	/// Global TypeProvider instance.
@@ -224,7 +226,7 @@ private:
 	static std::array<std::unique_ptr<IntegerType>, 32> const m_intM;
 	static std::array<std::unique_ptr<IntegerType>, 32> const m_uintM;
 	static std::array<std::unique_ptr<FixedBytesType>, 32> const m_bytesM;
-	static std::array<std::unique_ptr<MagicType>, 4> const m_magics;        ///< MagicType's except MetaType
+	static std::array<std::unique_ptr<MagicType>, 5> const m_magics;        ///< MagicType's except MetaType
 
 	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_ufixedMxN{};
 	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_fixedMxN{};

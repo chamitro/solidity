@@ -1,6 +1,6 @@
 contract A {
     uint x;
-    constructor() public {
+    constructor() {
         x = 42;
     }
     function f() public returns(uint256) {
@@ -14,4 +14,6 @@ contract B is A {
 // compileViaYul: true
 // ----
 // constructor() ->
+// gas irOptimized: 99436
+// gas irOptimized code: 20200
 // y() -> 42

@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f() public view {
@@ -9,6 +7,9 @@ contract C
 		assert(g >= gasleft());
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (76-97): Assertion violation happens here
-// Warning 4661: (123-144): Assertion violation happens here
+// Warning 6328: (43-64): CHC: Assertion violation happens here.
+// Warning 6328: (90-111): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

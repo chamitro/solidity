@@ -4,7 +4,7 @@ contract test {
     }
     mapping(uint256 => testStruct) campaigns;
 
-    constructor() public {
+    constructor() {
         campaigns[0].m_value = 2;
     }
 
@@ -13,6 +13,5 @@ contract test {
         return campaigns[0].m_value;
     }
 }
-
 // ----
 // deleteIt() -> 0

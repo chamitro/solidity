@@ -12,6 +12,5 @@ contract Test {
         r = x.b;
     }
 }
-
 // ----
 // f() -> 3

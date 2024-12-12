@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <libyul/optimiser/LoopInvariantCodeMotion.h>
 
@@ -21,33 +22,32 @@
 #include <libyul/optimiser/NameCollector.h>
 #include <libyul/optimiser/Semantics.h>
 #include <libyul/optimiser/SSAValueTracker.h>
-#include <libyul/AsmData.h>
+#include <libyul/AST.h>
 #include <libsolutil/CommonData.h>
 
 #include <utility>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 
 void LoopInvariantCodeMotion::run(OptimiserStepContext& _context, Block& _ast)
 {
-	map<YulString, SideEffects> functionSideEffects =
+	std::map<FunctionHandle, SideEffects> functionSideEffects =
 		SideEffectsPropagator::sideEffects(_context.dialect, CallGraphGenerator::callGraph(_ast));
-
-	set<YulString> ssaVars = SSAValueTracker::ssaVariables(_ast);
-	LoopInvariantCodeMotion{_context.dialect, ssaVars, functionSideEffects}(_ast);
+	bool containsMSize = MSizeFinder::containsMSize(_context.dialect, _ast);
+	std::set<YulName> ssaVars = SSAValueTracker::ssaVariables(_ast);
+	LoopInvariantCodeMotion{_context.dialect, ssaVars, functionSideEffects, containsMSize}(_ast);
 }
 
 void LoopInvariantCodeMotion::operator()(Block& _block)
 {
 	util::iterateReplacing(
 		_block.statements,
-		[&](Statement& _s) -> optional<vector<Statement>>
+		[&](Statement& _s) -> std::optional<std::vector<Statement>>
 		{
 			visit(_s);
-			if (holds_alternative<ForLoop>(_s))
-				return rewriteLoop(get<ForLoop>(_s));
+			if (std::holds_alternative<ForLoop>(_s))
+				return rewriteLoop(std::get<ForLoop>(_s));
 			else
 				return {};
 		}
@@ -56,7 +56,8 @@ void LoopInvariantCodeMotion::operator()(Block& _block)
 
 bool LoopInvariantCodeMotion::canBePromoted(
 	VariableDeclaration const& _varDecl,
-	set<YulString> const& _varsDefinedInCurrentScope
+	std::set<YulName> const& _varsDefinedInCurrentScope,
+	SideEffects const& _forLoopSideEffects
 ) const
 {
 	// A declaration can be promoted iff
@@ -69,34 +70,39 @@ bool LoopInvariantCodeMotion::canBePromoted(
 			return false;
 	if (_varDecl.value)
 	{
-		for (auto const& ref: ReferencesCounter::countReferences(*_varDecl.value, ReferencesCounter::OnlyVariables))
+		for (auto const& ref: VariableReferencesCounter::countReferences(*_varDecl.value))
 			if (_varsDefinedInCurrentScope.count(ref.first) || !m_ssaVariables.count(ref.first))
 				return false;
-		if (!SideEffectsCollector{m_dialect, *_varDecl.value, &m_functionSideEffects}.movable())
+		SideEffectsCollector sideEffects{m_dialect, *_varDecl.value, &m_functionSideEffects};
+		if (!sideEffects.movableRelativeTo(_forLoopSideEffects, m_containsMSize))
 			return false;
 	}
 	return true;
 }
 
-optional<vector<Statement>> LoopInvariantCodeMotion::rewriteLoop(ForLoop& _for)
+std::optional<std::vector<Statement>> LoopInvariantCodeMotion::rewriteLoop(ForLoop& _for)
 {
 	assertThrow(_for.pre.statements.empty(), OptimizerException, "");
-	vector<Statement> replacement;
+
+	auto forLoopSideEffects =
+		SideEffectsCollector{m_dialect, _for, &m_functionSideEffects}.sideEffects();
+
+	std::vector<Statement> replacement;
 	for (Block* block: {&_for.post, &_for.body})
 	{
-		set<YulString> varsDefinedInScope;
+		std::set<YulName> varsDefinedInScope;
 		util::iterateReplacing(
 			block->statements,
-			[&](Statement& _s) -> optional<vector<Statement>>
+			[&](Statement& _s) -> std::optional<std::vector<Statement>>
 			{
-				if (holds_alternative<VariableDeclaration>(_s))
+				if (std::holds_alternative<VariableDeclaration>(_s))
 				{
 					VariableDeclaration const& varDecl = std::get<VariableDeclaration>(_s);
-					if (canBePromoted(varDecl, varsDefinedInScope))
+					if (canBePromoted(varDecl, varsDefinedInScope, forLoopSideEffects))
 					{
 						replacement.emplace_back(std::move(_s));
 						// Do not add the variables declared here to varsDefinedInScope because we are moving them.
-						return vector<Statement>{};
+						return std::vector<Statement>{};
 					}
 					for (auto const& var: varDecl.variables)
 						varsDefinedInScope.insert(var.name);

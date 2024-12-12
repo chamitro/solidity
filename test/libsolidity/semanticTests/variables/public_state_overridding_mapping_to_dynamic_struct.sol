@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 struct S { uint256 v; string s; }
 
@@ -16,8 +16,6 @@ contract X is A
 
 	function set() public { test[42].v = 2; test[42].s = "statevar"; }
 }
-
-
 // ----
 // test(uint256): 0 -> 0, 64, 0
 // test(uint256): 42 -> 0, 64, 0

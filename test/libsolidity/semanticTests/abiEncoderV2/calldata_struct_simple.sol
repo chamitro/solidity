@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 contract C {
     struct S { uint256 a; }
@@ -12,7 +12,6 @@ contract C {
     }
 }
 // ====
-// compileViaYul: also
 // EVMVersion: >homestead
 // ----
 // f((uint256)): 3 -> 32, 32, 3

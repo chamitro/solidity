@@ -1,26 +1,30 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f() public payable {
 		assert(msg.sender == block.coinbase);
 		assert(block.difficulty == block.gaslimit);
+		assert(block.prevrandao == block.gaslimit);
 		assert(block.number == block.timestamp);
 		assert(tx.gasprice == msg.value);
 		assert(tx.origin == msg.sender);
 		uint x = block.number;
-		assert(x + 2 > block.number);
-		assert(now > 10);
+		unchecked { x += 2; }
+		assert(x > block.number);
+		assert(block.timestamp > 10);
 		assert(gasleft() > 100);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreCex: yes
 // ----
-// Warning 4661: (79-115): Assertion violation happens here
-// Warning 4661: (119-161): Assertion violation happens here
-// Warning 4661: (165-204): Assertion violation happens here
-// Warning 4661: (208-240): Assertion violation happens here
-// Warning 4661: (244-275): Assertion violation happens here
-// Warning 2661: (311-316): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 4661: (304-332): Assertion violation happens here
-// Warning 4661: (336-352): Assertion violation happens here
-// Warning 4661: (356-379): Assertion violation happens here
+// Warning 8417: (93-109): Since the VM version paris, "difficulty" was replaced by "prevrandao", which now returns a random number based on the beacon chain.
+// Warning 6328: (46-82): CHC: Assertion violation happens here.
+// Warning 6328: (86-128): CHC: Assertion violation happens here.
+// Warning 6328: (132-174): CHC: Assertion violation happens here.
+// Warning 6328: (178-217): CHC: Assertion violation happens here.
+// Warning 6328: (221-253): CHC: Assertion violation happens here.
+// Warning 6328: (257-288): CHC: Assertion violation happens here.
+// Warning 6328: (341-365): CHC: Assertion violation happens here.
+// Warning 6328: (369-397): CHC: Assertion violation happens here.
+// Warning 6328: (401-424): CHC: Assertion violation happens here.

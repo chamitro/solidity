@@ -1,118 +1,100 @@
 {
   "absolutePath": "a",
-  "exportedSymbols":
-  {
-    "C":
-    [
+  "exportedSymbols": {
+    "C": [
       17
     ]
   },
   "id": 18,
-  "license": null,
   "nodeType": "SourceUnit",
-  "nodes":
-  [
+  "nodes": [
     {
       "abstract": false,
       "baseContracts": [],
+      "canonicalName": "C",
       "contractDependencies": [],
       "contractKind": "contract",
-      "documentation": null,
       "fullyImplemented": true,
       "id": 17,
-      "linearizedBaseContracts":
-      [
+      "linearizedBaseContracts": [
         17
       ],
       "name": "C",
+      "nameLocation": "9:1:1",
       "nodeType": "ContractDefinition",
-      "nodes":
-      [
+      "nodes": [
         {
-          "body":
-          {
+          "body": {
             "id": 15,
             "nodeType": "Block",
-            "src": "120:2:1",
+            "src": "127:2:1",
             "statements": []
           },
-          "documentation": null,
           "functionSelector": "d6cd4974",
           "id": 16,
           "implemented": true,
           "kind": "function",
           "modifiers": [],
           "name": "f",
+          "nameLocation": "22:1:1",
           "nodeType": "FunctionDefinition",
-          "overrides": null,
-          "parameters":
-          {
+          "parameters": {
             "id": 7,
             "nodeType": "ParameterList",
-            "parameters":
-            [
+            "parameters": [
               {
                 "constant": false,
                 "id": 6,
                 "mutability": "mutable",
                 "name": "x",
+                "nameLocation": "67:1:1",
                 "nodeType": "VariableDeclaration",
-                "overrides": null,
                 "scope": 16,
                 "src": "24:44:1",
                 "stateVariable": false,
                 "storageLocation": "default",
-                "typeDescriptions":
-                {
+                "typeDescriptions": {
                   "typeIdentifier": "t_function_external_payable$__$returns$_t_uint256_$",
                   "typeString": "function () payable external returns (uint256)"
                 },
-                "typeName":
-                {
+                "typeName": {
                   "id": 5,
                   "nodeType": "FunctionTypeName",
-                  "parameterTypes":
-                  {
+                  "parameterTypes": {
                     "id": 1,
                     "nodeType": "ParameterList",
                     "parameters": [],
                     "src": "32:2:1"
                   },
-                  "returnParameterTypes":
-                  {
+                  "returnParameterTypes": {
                     "id": 4,
                     "nodeType": "ParameterList",
-                    "parameters":
-                    [
+                    "parameters": [
                       {
                         "constant": false,
                         "id": 3,
                         "mutability": "mutable",
                         "name": "",
+                        "nameLocation": "-1:-1:-1",
                         "nodeType": "VariableDeclaration",
-                        "overrides": null,
                         "scope": 5,
                         "src": "61:4:1",
                         "stateVariable": false,
                         "storageLocation": "default",
-                        "typeDescriptions":
-                        {
+                        "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
                         },
-                        "typeName":
-                        {
+                        "typeName": {
                           "id": 2,
                           "name": "uint",
                           "nodeType": "ElementaryTypeName",
                           "src": "61:4:1",
-                          "typeDescriptions":
-                          {
+                          "typeDescriptions": {
                             "typeIdentifier": "t_uint256",
                             "typeString": "uint256"
                           }
                         },
-                        "value": null,
                         "visibility": "internal"
                       }
                     ],
@@ -120,117 +102,104 @@
                   },
                   "src": "24:44:1",
                   "stateMutability": "payable",
-                  "typeDescriptions":
-                  {
+                  "typeDescriptions": {
                     "typeIdentifier": "t_function_external_payable$__$returns$_t_uint256_$",
                     "typeString": "function () payable external returns (uint256)"
                   },
                   "visibility": "external"
                 },
-                "value": null,
                 "visibility": "internal"
               }
             ],
             "src": "23:46:1"
           },
-          "returnParameters":
-          {
+          "returnParameters": {
             "id": 14,
             "nodeType": "ParameterList",
-            "parameters":
-            [
+            "parameters": [
               {
                 "constant": false,
                 "id": 13,
                 "mutability": "mutable",
                 "name": "",
+                "nameLocation": "-1:-1:-1",
                 "nodeType": "VariableDeclaration",
-                "overrides": null,
                 "scope": 16,
-                "src": "79:40:1",
+                "src": "86:40:1",
                 "stateVariable": false,
                 "storageLocation": "default",
-                "typeDescriptions":
-                {
+                "typeDescriptions": {
                   "typeIdentifier": "t_function_external_view$__$returns$_t_uint256_$",
                   "typeString": "function () view external returns (uint256)"
                 },
-                "typeName":
-                {
+                "typeName": {
                   "id": 12,
                   "nodeType": "FunctionTypeName",
-                  "parameterTypes":
-                  {
+                  "parameterTypes": {
                     "id": 8,
                     "nodeType": "ParameterList",
                     "parameters": [],
-                    "src": "87:2:1"
+                    "src": "94:2:1"
                   },
-                  "returnParameterTypes":
-                  {
+                  "returnParameterTypes": {
                     "id": 11,
                     "nodeType": "ParameterList",
-                    "parameters":
-                    [
+                    "parameters": [
                       {
                         "constant": false,
                         "id": 10,
                         "mutability": "mutable",
                         "name": "",
+                        "nameLocation": "-1:-1:-1",
                         "nodeType": "VariableDeclaration",
-                        "overrides": null,
                         "scope": 12,
-                        "src": "113:4:1",
+                        "src": "120:4:1",
                         "stateVariable": false,
                         "storageLocation": "default",
-                        "typeDescriptions":
-                        {
+                        "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
                         },
-                        "typeName":
-                        {
+                        "typeName": {
                           "id": 9,
                           "name": "uint",
                           "nodeType": "ElementaryTypeName",
-                          "src": "113:4:1",
-                          "typeDescriptions":
-                          {
+                          "src": "120:4:1",
+                          "typeDescriptions": {
                             "typeIdentifier": "t_uint256",
                             "typeString": "uint256"
                           }
                         },
-                        "value": null,
                         "visibility": "internal"
                       }
                     ],
-                    "src": "112:6:1"
+                    "src": "119:6:1"
                   },
-                  "src": "79:40:1",
+                  "src": "86:40:1",
                   "stateMutability": "view",
-                  "typeDescriptions":
-                  {
+                  "typeDescriptions": {
                     "typeIdentifier": "t_function_external_view$__$returns$_t_uint256_$",
                     "typeString": "function () view external returns (uint256)"
                   },
                   "visibility": "external"
                 },
-                "value": null,
                 "visibility": "internal"
               }
             ],
-            "src": "78:41:1"
+            "src": "85:41:1"
           },
           "scope": 17,
-          "src": "13:109:1",
+          "src": "13:116:1",
           "stateMutability": "nonpayable",
           "virtual": false,
           "visibility": "public"
         }
       ],
       "scope": 18,
-      "src": "0:124:1"
+      "src": "0:131:1",
+      "usedErrors": [],
+      "usedEvents": []
     }
   ],
-  "src": "0:125:1"
+  "src": "0:132:1"
 }

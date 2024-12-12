@@ -13,9 +13,6 @@ contract C {
         }
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> FAILURE
 // a() -> 42

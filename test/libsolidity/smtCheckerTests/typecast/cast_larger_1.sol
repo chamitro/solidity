@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f(uint8 x) public pure {
@@ -8,5 +6,7 @@ contract C
 		assert(y < 300);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 5084: (94-103): Type conversion is not yet fully supported and might yield false positives.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

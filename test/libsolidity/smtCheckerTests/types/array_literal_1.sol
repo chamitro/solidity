@@ -1,11 +1,13 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f() public pure {
 		uint[3] memory array = [uint(1), 2, 3];
+		assert(array[0] == 1);
+		assert(array[1] == 2);
+		assert(array[2] == 3);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2072: (76-96): Unused local variable.
-// Warning 2177: (99-114): Assertion checker does not yet implement inline arrays.
+// Info 1391: CHC: 6 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

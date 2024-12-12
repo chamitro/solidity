@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /** @file IsolTestOptions.cpp
 * @date 2019
 */
@@ -34,6 +35,9 @@ namespace po = boost::program_options;
 namespace solidity::test
 {
 
+namespace
+{
+
 auto const description = R"(isoltest, tool for interactively managing test contracts.
 Usage: isoltest [Options]
 Interactively validates test contracts.
@@ -50,33 +54,43 @@ std::string editorPath()
 	return std::string{};
 }
 
-IsolTestOptions::IsolTestOptions(std::string* _editor):
+}
+
+IsolTestOptions::IsolTestOptions():
 	CommonOptions(description)
 {
+}
+
+void IsolTestOptions::addOptions()
+{
+	CommonOptions::addOptions();
 	options.add_options()
-		("editor", po::value<std::string>(_editor)->default_value(editorPath()), "Path to editor for opening test files.")
-		("help", po::bool_switch(&showHelp), "Show this help screen.")
-		("no-color", po::bool_switch(&noColor), "Don't use colors.")
+		("editor", po::value<std::string>(&editor)->default_value(editorPath()), "Path to editor for opening test files.")
+		("help", po::bool_switch(&showHelp)->default_value(showHelp), "Show this help screen.")
+		("no-color", po::bool_switch(&noColor)->default_value(noColor), "Don't use colors.")
+		("accept-updates", po::bool_switch(&acceptUpdates)->default_value(acceptUpdates), "Automatically accept expectation updates.")
 		("test,t", po::value<std::string>(&testFilter)->default_value("*/*"), "Filters which test units to include.");
 }
 
 bool IsolTestOptions::parse(int _argc, char const* const* _argv)
 {
-	bool const res = CommonOptions::parse(_argc, _argv);
+	bool const shouldContinue = CommonOptions::parse(_argc, _argv);
 
-	if (showHelp || !res)
+	if (showHelp || !shouldContinue)
 	{
 		std::cout << options << std::endl;
 		return false;
 	}
-	enforceViaYul = true;
 
-	return res;
+	enforceGasTest = enforceGasTest || (evmVersion() == langutil::EVMVersion{} && !useABIEncoderV1);
+
+	return shouldContinue;
 }
 
 void IsolTestOptions::validate() const
 {
-	static std::string filterString{"[a-zA-Z1-9_/*]*"};
+	CommonOptions::validate();
+	static std::string filterString{"[a-zA-Z0-9_/*]*"};
 	static std::regex filterExpression{filterString};
 	assertThrow(
 		regex_match(testFilter, filterExpression),

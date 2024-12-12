@@ -14,20 +14,22 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Creates an independent copy of an AST, renaming identifiers to be unique.
  */
 
 #pragma once
 
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
 
-#include <libyul/YulString.h>
+#include <libyul/YulName.h>
 
 #include <memory>
 #include <optional>
 #include <set>
 #include <vector>
+#include <map>
 
 namespace solidity::yul
 {
@@ -98,13 +100,14 @@ protected:
 	Case translate(Case const& _case);
 	virtual Identifier translate(Identifier const& _identifier);
 	Literal translate(Literal const& _literal);
-	TypedName translate(TypedName const& _typedName);
+	FunctionName translate(FunctionName const& _functionName);
+	NameWithDebugData translate(NameWithDebugData const& _typedName);
 
 	virtual void enterScope(Block const&) { }
 	virtual void leaveScope(Block const&) { }
 	virtual void enterFunction(FunctionDefinition const&) { }
 	virtual void leaveFunction(FunctionDefinition const&) { }
-	virtual YulString translateIdentifier(YulString _name) { return _name; }
+	virtual YulName translateIdentifier(YulName _name) { return _name; }
 };
 
 template <typename T>
@@ -116,5 +119,22 @@ std::vector<T> ASTCopier::translateVector(std::vector<T> const& _values)
 	return translated;
 }
 
+/// Helper class that creates a copy of the function definition, replacing the names of the variable
+/// declarations with new names.
+class FunctionCopier: public ASTCopier
+{
+public:
+	FunctionCopier(
+		std::map<YulName, YulName> const& _translations
+	):
+		m_translations(_translations)
+	{}
+	using ASTCopier::operator();
+	YulName translateIdentifier(YulName _name) override;
+private:
+	/// A mapping between old and new names. We replace the names of variable declarations contained
+	/// in the mapping with their new names.
+	std::map<YulName, YulName> const& m_translations;
+};
 
 }

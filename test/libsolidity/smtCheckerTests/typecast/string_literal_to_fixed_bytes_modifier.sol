@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract B {
     function f() mod2("0123456") pure public { }
     modifier mod2(bytes7 a) {
@@ -7,5 +6,8 @@ contract B {
 		_;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (152-174): Assertion violation happens here
+// Warning 6328: (120-142): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

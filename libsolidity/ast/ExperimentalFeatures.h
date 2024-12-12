@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * List of experimental features.
  */
@@ -31,7 +32,8 @@ enum class ExperimentalFeature
 	ABIEncoderV2, // new ABI encoder that makes use of Yul
 	SMTChecker,
 	Test,
-	TestOnlyAnalysis
+	TestOnlyAnalysis,
+	Solidity
 };
 
 static std::set<ExperimentalFeature> const ExperimentalFeatureWithoutWarning =
@@ -47,6 +49,7 @@ static std::map<std::string, ExperimentalFeature> const ExperimentalFeatureNames
 	{ "SMTChecker", ExperimentalFeature::SMTChecker },
 	{ "__test", ExperimentalFeature::Test },
 	{ "__testOnlyAnalysis", ExperimentalFeature::TestOnlyAnalysis },
+	{ "solidity", ExperimentalFeature::Solidity }
 };
 
 }

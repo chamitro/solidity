@@ -18,16 +18,13 @@ contract C {
         assembly {
             y := x
         }
-        address payable z = address(y);
+        address payable z = payable(address(y));
         assembly {
             r := z
         }
         require(z == 0x1122334455667788990011223344556677889900);
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 0x1122334455667788990011223344556677889900
 // g() -> 0x1122334455667788990011223344556677889900

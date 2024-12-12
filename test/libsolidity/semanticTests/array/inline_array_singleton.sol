@@ -4,6 +4,5 @@ contract C {
         return [4][0];
     }
 }
-
 // ----
 // f() -> 4

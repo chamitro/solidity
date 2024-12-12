@@ -3,8 +3,6 @@ contract C {
 		return msg.value;
 	}
 }
-// ====
-// compileViaYul: also
 // ----
 // f(), 1 ether -> 1000000000000000000
 // f(), 1 wei -> 1

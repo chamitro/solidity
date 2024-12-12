@@ -2,7 +2,7 @@ contract C {
     uint8[1] s;
     function f() public returns (bool correct) {
         assembly {
-            sstore(s_slot, 257)
+            sstore(s.slot, 257)
         }
         uint8 x = s[0];
         uint r;
@@ -12,7 +12,5 @@ contract C {
         correct = (s[0] == 0x01) && (r == 0x01);
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f() -> true

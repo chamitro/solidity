@@ -5,7 +5,5 @@ contract A {
 		return x + y;
 	}
 }
-// ====
-// compileViaYul: also
 // ----
 // f() -> 2

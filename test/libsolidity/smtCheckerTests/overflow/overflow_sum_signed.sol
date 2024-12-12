@@ -1,19 +1,18 @@
-pragma experimental SMTChecker;
-
 contract C
 {
-	function f(int8 x) public pure returns (int8) {
+	function f(int8 x) public pure {
 		x = 127;
-		int8 y = x + 1;
+		int8 y;
+		unchecked { y = x + 1; }
 		assert(y == -128);
-		y = x + 127;
+		unchecked { y = x + 127; }
 		assert(y == -2);
 		x = -127;
-		y = x + -127;
+		unchecked { y = x + -127; }
 		assert(y == 2);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2661: (117-122): Overflow (resulting value larger than 127) happens here
-// Warning 2661: (151-158): Overflow (resulting value larger than 127) happens here
-// Warning 4144: (197-205): Underflow (resulting value less than -128) happens here
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

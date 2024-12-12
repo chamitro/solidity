@@ -5,7 +5,5 @@ contract test {
         res = v;
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // delLocal() -> 0

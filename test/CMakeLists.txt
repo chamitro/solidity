@@ -1,5 +1,5 @@
 set(sources
-    boostTest.cpp
+    soltest.cpp
     Common.cpp
     Common.h
     CommonSyntaxTest.cpp
@@ -8,6 +8,8 @@ set(sources
     EVMHost.h
     ExecutionFramework.cpp
     ExecutionFramework.h
+    FilesystemUtils.cpp
+    FilesystemUtils.h
     InteractiveTests.h
     Metadata.cpp
     Metadata.h
@@ -21,7 +23,6 @@ detect_stray_source_files("${sources}" ".")
 set(contracts_sources
     contracts/AuctionRegistrar.cpp
     contracts/ContractInterface.h
-    contracts/FixedFeeRegistrar.cpp
     contracts/Wallet.cpp
 )
 detect_stray_source_files("${contracts_sources}" "contracts/")
@@ -29,14 +30,20 @@ detect_stray_source_files("${contracts_sources}" "contracts/")
 set(libsolutil_sources
     libsolutil/Checksum.cpp
     libsolutil/CommonData.cpp
-    libsolutil/IndentedWriter.cpp
+    libsolutil/CommonIO.cpp
+    libsolutil/DisjointSet.cpp
+    libsolutil/DominatorFinderTest.cpp
+    libsolutil/FixedHash.cpp
+    libsolutil/FunctionSelector.cpp
     libsolutil/IpfsHash.cpp
     libsolutil/IterateReplacing.cpp
     libsolutil/JSON.cpp
     libsolutil/Keccak256.cpp
     libsolutil/LazyInit.cpp
+    libsolutil/LEB128.cpp
     libsolutil/StringUtils.cpp
     libsolutil/SwarmHash.cpp
+    libsolutil/TemporaryDirectoryTest.cpp
     libsolutil/UTF8.cpp
     libsolutil/Whiskers.cpp
 )
@@ -50,6 +57,7 @@ detect_stray_source_files("${libevmasm_sources}" "libevmasm/")
 
 set(liblangutil_sources
     liblangutil/CharStream.cpp
+    liblangutil/Scanner.cpp
     liblangutil/SourceLocation.cpp
 )
 detect_stray_source_files("${liblangutil_sources}" "liblangutil/")
@@ -67,6 +75,8 @@ set(libsolidity_sources
     libsolidity/ASTJSONTest.h
     libsolidity/ErrorCheck.cpp
     libsolidity/ErrorCheck.h
+    libsolidity/FunctionDependencyGraphTest.cpp
+    libsolidity/FunctionDependencyGraphTest.h
     libsolidity/GasCosts.cpp
     libsolidity/GasMeter.cpp
     libsolidity/GasTest.cpp
@@ -75,12 +85,15 @@ set(libsolidity_sources
     libsolidity/InlineAssembly.cpp
     libsolidity/LibSolc.cpp
     libsolidity/Metadata.cpp
+    libsolidity/MemoryGuardTest.cpp
+    libsolidity/MemoryGuardTest.h
+    libsolidity/NatspecJSONTest.cpp
+    libsolidity/NatspecJSONTest.h
+    libsolidity/OptimizedIRCachingTest.cpp
+    libsolidity/OptimizedIRCachingTest.h
     libsolidity/SemanticTest.cpp
     libsolidity/SemanticTest.h
     libsolidity/SemVerMatcher.cpp
-    libsolidity/SMTChecker.cpp
-    libsolidity/SMTCheckerJSONTest.cpp
-    libsolidity/SMTCheckerJSONTest.h
     libsolidity/SMTCheckerTest.cpp
     libsolidity/SMTCheckerTest.h
     libsolidity/SolidityCompiler.cpp
@@ -89,21 +102,26 @@ set(libsolidity_sources
     libsolidity/SolidityExecutionFramework.h
     libsolidity/SolidityExpressionCompiler.cpp
     libsolidity/SolidityNameAndTypeResolution.cpp
-    libsolidity/SolidityNatspecJSON.cpp
     libsolidity/SolidityOptimizer.cpp
     libsolidity/SolidityParser.cpp
-    libsolidity/SolidityScanner.cpp
     libsolidity/SolidityTypes.cpp
     libsolidity/StandardCompiler.cpp
     libsolidity/SyntaxTest.cpp
     libsolidity/SyntaxTest.h
     libsolidity/ViewPureChecker.cpp
+    libsolidity/analysis/FunctionCallGraph.cpp
+    libsolidity/interface/FileReader.cpp
+    libsolidity/ASTPropertyTest.h
+    libsolidity/ASTPropertyTest.cpp
 )
 detect_stray_source_files("${libsolidity_sources}" "libsolidity/")
 
 set(libsolidity_util_sources
     libsolidity/util/BytesUtils.cpp
+    libsolidity/util/BytesUtilsTests.cpp
     libsolidity/util/BytesUtils.h
+    libsolidity/util/Common.cpp
+    libsolidity/util/Common.h
     libsolidity/util/ContractABIUtils.cpp
     libsolidity/util/ContractABIUtils.h
     libsolidity/util/SoltestErrors.h
@@ -121,25 +139,46 @@ set(libyul_sources
     libyul/Common.cpp
     libyul/Common.h
     libyul/CompilabilityChecker.cpp
-    libyul/EwasmTranslationTest.cpp
-    libyul/EwasmTranslationTest.h
+    libyul/ControlFlowGraphTest.cpp
+    libyul/ControlFlowGraphTest.h
+    libyul/ControlFlowSideEffectsTest.cpp
+    libyul/ControlFlowSideEffectsTest.h
+    libyul/EVMCodeTransformTest.cpp
+    libyul/EVMCodeTransformTest.h
     libyul/FunctionSideEffects.cpp
     libyul/FunctionSideEffects.h
     libyul/Inliner.cpp
+    libyul/KnowledgeBaseTest.cpp
     libyul/Metrics.cpp
     libyul/ObjectCompilerTest.cpp
     libyul/ObjectCompilerTest.h
     libyul/ObjectParser.cpp
     libyul/Parser.cpp
-    libyul/StackReuseCodegen.cpp
+    libyul/SSAControlFlowGraphTest.cpp
+    libyul/SSAControlFlowGraphTest.h
+    libyul/StackLayoutGeneratorTest.cpp
+    libyul/StackLayoutGeneratorTest.h
+    libyul/StackShufflingTest.cpp
+    libyul/StackShufflingTest.h
     libyul/SyntaxTest.h
     libyul/SyntaxTest.cpp
     libyul/YulInterpreterTest.cpp
     libyul/YulInterpreterTest.h
     libyul/YulOptimizerTest.cpp
     libyul/YulOptimizerTest.h
+    libyul/YulOptimizerTestCommon.cpp
+    libyul/YulOptimizerTestCommon.h
 )
 detect_stray_source_files("${libyul_sources}" "libyul/")
+
+set(solcli_sources
+    solc/Common.cpp
+    solc/Common.h
+    solc/CommandLineInterface.cpp
+    solc/CommandLineInterfaceAllowPaths.cpp
+    solc/CommandLineParser.cpp
+)
+detect_stray_source_files("${solcli_sources}" "solc/")
 
 set(yul_phaser_sources
     yulPhaser/TestHelpers.h
@@ -158,23 +197,6 @@ set(yul_phaser_sources
     yulPhaser/ProgramCache.cpp
     yulPhaser/Selections.cpp
     yulPhaser/SimulationRNG.cpp
-
-    # FIXME: yul-phaser is not a library so I can't just add it to target_link_libraries().
-    # My current workaround is just to include its source files here but this introduces
-    # unnecessary duplication. Create a library or find a way to reuse the list in both places.
-    ../tools/yulPhaser/AlgorithmRunner.cpp
-    ../tools/yulPhaser/Common.cpp
-    ../tools/yulPhaser/Chromosome.cpp
-    ../tools/yulPhaser/FitnessMetrics.cpp
-    ../tools/yulPhaser/GeneticAlgorithms.cpp
-    ../tools/yulPhaser/Mutations.cpp
-    ../tools/yulPhaser/PairSelections.cpp
-    ../tools/yulPhaser/Phaser.cpp
-    ../tools/yulPhaser/Population.cpp
-    ../tools/yulPhaser/Program.cpp
-    ../tools/yulPhaser/ProgramCache.cpp
-    ../tools/yulPhaser/Selections.cpp
-    ../tools/yulPhaser/SimulationRNG.cpp
 )
 detect_stray_source_files("${yul_phaser_sources}" "yulPhaser/")
 
@@ -186,9 +208,10 @@ add_executable(soltest ${sources}
     ${libyul_sources}
     ${libsolidity_sources}
     ${libsolidity_util_sources}
+    ${solcli_sources}
     ${yul_phaser_sources}
 )
-target_link_libraries(soltest PRIVATE libsolc yul solidity smtutil solutil Boost::boost yulInterpreter evmasm Boost::filesystem Boost::program_options Boost::unit_test_framework evmc)
+target_link_libraries(soltest PRIVATE solcli libsolc yul solidity smtutil solutil phaser Boost::boost yulInterpreter evmasm Boost::filesystem Boost::program_options Boost::unit_test_framework evmc)
 
 
 # Special compilation flag for Visual Studio (version 2019 at least affected)

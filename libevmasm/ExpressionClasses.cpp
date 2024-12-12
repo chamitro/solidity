@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file ExpressionClasses.cpp
  * @author Christian <c@ethdev.com>
@@ -22,36 +23,57 @@
  */
 
 #include <libevmasm/ExpressionClasses.h>
+
 #include <libevmasm/Assembly.h>
 #include <libevmasm/CommonSubexpressionEliminator.h>
 #include <libevmasm/SimplificationRules.h>
 
+#include <boost/container_hash/hash.hpp>
+
 #include <functional>
+#include <limits>
 #include <tuple>
 #include <utility>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::evmasm;
 using namespace solidity::langutil;
 
-bool ExpressionClasses::Expression::operator<(ExpressionClasses::Expression const& _other) const
+bool ExpressionClasses::Expression::operator==(ExpressionClasses::Expression const& _other) const
 {
 	assertThrow(!!item && !!_other.item, OptimizerException, "");
 	auto type = item->type();
 	auto otherType = _other.item->type();
 	if (type != otherType)
-		return type < otherType;
+		return false;
 	else if (type == Operation)
 	{
 		auto instr = item->instruction();
 		auto otherInstr = _other.item->instruction();
-		return std::tie(instr, arguments, sequenceNumber) <
+		return std::tie(instr, arguments, sequenceNumber) ==
 			std::tie(otherInstr, _other.arguments, _other.sequenceNumber);
 	}
 	else
-		return std::tie(item->data(), arguments, sequenceNumber) <
+		return std::tie(item->data(), arguments, sequenceNumber) ==
 			std::tie(_other.item->data(), _other.arguments, _other.sequenceNumber);
+}
+
+size_t ExpressionClasses::Expression::ExpressionHash::operator()(Expression const& _expression) const
+{
+	assertThrow(!!_expression.item, OptimizerException, "");
+	size_t seed = 0;
+	auto type = _expression.item->type();
+	boost::hash_combine(seed, type);
+
+	if (type == Operation)
+		boost::hash_combine(seed, _expression.item->instruction());
+	else
+		boost::hash_combine(seed, _expression.item->data());
+
+	boost::hash_range(seed, _expression.arguments.begin(), _expression.arguments.end());
+	boost::hash_combine(seed, _expression.sequenceNumber);
+
+	return seed;
 }
 
 ExpressionClasses::Id ExpressionClasses::find(
@@ -85,7 +107,7 @@ ExpressionClasses::Id ExpressionClasses::find(
 		exp.id = id;
 	else
 	{
-		exp.id = m_representatives.size();
+		exp.id = static_cast<Id>(m_representatives.size());
 		m_representatives.push_back(exp);
 	}
 	m_expressions.insert(exp);
@@ -113,11 +135,11 @@ void ExpressionClasses::forceEqual(
 	m_expressions.insert(exp);
 }
 
-ExpressionClasses::Id ExpressionClasses::newClass(SourceLocation const& _location)
+ExpressionClasses::Id ExpressionClasses::newClass(langutil::DebugData::ConstPtr _debugData)
 {
 	Expression exp;
-	exp.id = m_representatives.size();
-	exp.item = storeItem(AssemblyItem(UndefinedItem, (u256(1) << 255) + exp.id, _location));
+	exp.id = static_cast<Id>(m_representatives.size());
+	exp.item = storeItem(AssemblyItem(UndefinedItem, (u256(1) << 255) + exp.id, std::move(_debugData)));
 	m_representatives.push_back(exp);
 	m_expressions.insert(exp);
 	return exp.id;
@@ -149,7 +171,7 @@ bool ExpressionClasses::knownNonZero(Id _c)
 
 u256 const* ExpressionClasses::knownConstant(Id _c)
 {
-	map<unsigned, Expression const*> matchGroups;
+	std::map<unsigned, Expression const*> matchGroups;
 	Pattern constant(Push);
 	constant.setMatchGroup(1, matchGroups);
 	if (!constant.matches(representative(_c), *this))
@@ -159,15 +181,15 @@ u256 const* ExpressionClasses::knownConstant(Id _c)
 
 AssemblyItem const* ExpressionClasses::storeItem(AssemblyItem const& _item)
 {
-	m_spareAssemblyItems.push_back(make_shared<AssemblyItem>(_item));
+	m_spareAssemblyItems.push_back(std::make_shared<AssemblyItem>(_item));
 	return m_spareAssemblyItems.back().get();
 }
 
-string ExpressionClasses::fullDAGToString(ExpressionClasses::Id _id) const
+std::string ExpressionClasses::fullDAGToString(ExpressionClasses::Id _id) const
 {
 	Expression const& expr = representative(_id);
-	stringstream str;
-	str << dec << expr.id << ":";
+	std::stringstream str;
+	str << std::dec << expr.id << ":";
 	if (expr.item)
 	{
 		str << *expr.item << "(";
@@ -190,25 +212,25 @@ ExpressionClasses::Id ExpressionClasses::tryToSimplify(Expression const& _expr)
 		_expr.item->type() != Operation ||
 		!SemanticInformation::isDeterministic(*_expr.item)
 	)
-		return numeric_limits<unsigned>::max();
+		return std::numeric_limits<unsigned>::max();
 
 	if (auto match = rules.findFirstMatch(_expr, *this))
 	{
 		// Debug info
 		if (false)
 		{
-			cout << "Simplifying " << *_expr.item << "(";
+			std::cout << "Simplifying " << *_expr.item << "(";
 			for (Id arg: _expr.arguments)
-				cout << fullDAGToString(arg) << ", ";
-			cout << ")" << endl;
-			cout << "with rule " << match->pattern.toString() << endl;
-			cout << "to " << match->action().toString() << endl;
+				std::cout << fullDAGToString(arg) << ", ";
+			std::cout << ")" << std::endl;
+			std::cout << "with rule " << match->pattern.toString() << std::endl;
+			std::cout << "to " << match->action().toString() << std::endl;
 		}
 
-		return rebuildExpression(ExpressionTemplate(match->action(), _expr.item->location()));
+		return rebuildExpression(ExpressionTemplate(match->action(), _expr.item->debugData()));
 	}
 
-	return numeric_limits<unsigned>::max();
+	return std::numeric_limits<unsigned>::max();
 }
 
 ExpressionClasses::Id ExpressionClasses::rebuildExpression(ExpressionTemplate const& _template)

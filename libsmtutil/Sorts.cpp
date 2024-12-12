@@ -14,24 +14,25 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 
 #include <libsmtutil/Sorts.h>
 
-using namespace std;
-
 namespace solidity::smtutil
 {
 
-shared_ptr<Sort> const SortProvider::boolSort{make_shared<Sort>(Kind::Bool)};
-shared_ptr<IntSort> const SortProvider::uintSort{make_shared<IntSort>(false)};
-shared_ptr<IntSort> const SortProvider::sintSort{make_shared<IntSort>(true)};
+std::shared_ptr<Sort> const SortProvider::boolSort{std::make_shared<Sort>(Kind::Bool)};
+std::shared_ptr<IntSort> const SortProvider::uintSort{std::make_shared<IntSort>(false)};
+std::shared_ptr<IntSort> const SortProvider::sintSort{std::make_shared<IntSort>(true)};
 
-shared_ptr<IntSort> SortProvider::intSort(bool _signed)
+std::shared_ptr<IntSort> SortProvider::intSort(bool _signed)
 {
 	if (_signed)
 		return sintSort;
 	return uintSort;
 }
+
+std::shared_ptr<BitVectorSort> const SortProvider::bitVectorSort{std::make_shared<BitVectorSort>(256)};
 
 }

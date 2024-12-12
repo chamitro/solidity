@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Contains the main class that controls yul-phaser based on command-line parameters and
  * associated factories for building instances of phaser's components.
@@ -24,8 +25,10 @@
 #include <tools/yulPhaser/AlgorithmRunner.h>
 #include <tools/yulPhaser/GeneticAlgorithms.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
+#include <cstddef>
 #include <istream>
 #include <memory>
 #include <optional>
@@ -240,7 +243,7 @@ public:
 	static std::vector<Program> build(Options const& _options);
 
 private:
-	static langutil::CharStream loadSource(std::string const& _sourcePath);
+	static langutil::CharStream loadSource(boost::filesystem::path const& _sourcePath);
 };
 
 /**

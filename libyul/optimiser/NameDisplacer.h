@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that renames identifiers to free up certain names.
  */
@@ -28,7 +29,7 @@
 
 namespace solidity::yul
 {
-struct Dialect;
+class Dialect;
 
 /**
  * Optimiser component that renames identifiers to free up certain names.
@@ -43,12 +44,12 @@ class NameDisplacer: public ASTModifier
 public:
 	explicit NameDisplacer(
 		NameDispenser& _dispenser,
-		std::set<YulString> const& _namesToFree
+		std::set<YulName> const& _namesToFree
 	):
 		m_nameDispenser(_dispenser),
 		m_namesToFree(_namesToFree)
 	{
-		for (YulString n: _namesToFree)
+		for (YulName n: _namesToFree)
 			m_nameDispenser.markUsed(n);
 	}
 
@@ -59,15 +60,17 @@ public:
 	void operator()(FunctionCall& _funCall) override;
 	void operator()(Block& _block) override;
 
+	std::map<YulName, YulName> const& translations() const { return m_translations; }
+
 protected:
 	/// Check if the newly introduced identifier @a _name has to be replaced.
-	void checkAndReplaceNew(YulString& _name);
+	void checkAndReplaceNew(YulName& _name);
 	/// Replace the identifier @a _name if it is in the translation map.
-	void checkAndReplace(YulString& _name) const;
+	void checkAndReplace(YulName& _name) const;
 
 	NameDispenser& m_nameDispenser;
-	std::set<YulString> const& m_namesToFree;
-	std::map<YulString, YulString> m_translations;
+	std::set<YulName> const& m_namesToFree;
+	std::map<YulName, YulName> m_translations;
 };
 
 }

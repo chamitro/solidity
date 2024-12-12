@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	uint256[] x;
 	function f(uint256 l) public {
@@ -11,3 +9,8 @@ contract C {
 		assert(x[0] == 42);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreOS: macos
+// ----
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

@@ -24,30 +24,47 @@
 
 #include <boost/test/unit_test.hpp>
 
-using namespace std;
 
 namespace solidity::frontend::test
 {
 
-BOOST_FIXTURE_TEST_SUITE(SolidityCompiler, AnalysisFramework)
+class SolidityCompilerFixture: protected AnalysisFramework
+{
+	void setupCompiler(CompilerStack& _compiler) override
+	{
+		AnalysisFramework::setupCompiler(_compiler);
+
+		// FIXME: This test was probably supposed to respect CommonOptions::get().optimize but
+		// due to a bug it was always running with optimizer disabled and it does not pass with it.
+		_compiler.setOptimiserSettings(false);
+	}
+};
+
+BOOST_FIXTURE_TEST_SUITE(SolidityCompiler, SolidityCompilerFixture)
 
 BOOST_AUTO_TEST_CASE(does_not_include_creation_time_only_internal_functions)
 {
 	char const* sourceCode = R"(
 		contract C {
 			uint x;
-			constructor() public { f(); }
-			function f() internal { for (uint i = 0; i < 10; ++i) x += 3 + i; }
+			constructor() { f(); }
+			function f() internal { unchecked { for (uint i = 0; i < 10; ++i) x += 3 + i; } }
 		}
 	)";
-	compiler().setOptimiserSettings(solidity::test::CommonOptions::get().optimize);
-	BOOST_REQUIRE(success(sourceCode));
-	BOOST_REQUIRE_MESSAGE(compiler().compile(), "Compiling contract failed");
+
+	runFramework(sourceCode, PipelineStage::Compilation);
+	BOOST_REQUIRE_MESSAGE(
+		pipelineSuccessful(),
+		"Contract compilation failed:\n" + formatErrors(filteredErrors(), true /* _colored */)
+	);
+
 	bytes const& creationBytecode = solidity::test::bytecodeSansMetadata(compiler().object("C").bytecode);
 	bytes const& runtimeBytecode = solidity::test::bytecodeSansMetadata(compiler().runtimeObject("C").bytecode);
 	BOOST_CHECK(creationBytecode.size() >= 90);
 	BOOST_CHECK(creationBytecode.size() <= 120);
-	BOOST_CHECK(runtimeBytecode.size() >= 10);
+	auto evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	unsigned threshold = evmVersion.hasPush0() ? 9 : 10;
+	BOOST_CHECK(runtimeBytecode.size() >= threshold);
 	BOOST_CHECK(runtimeBytecode.size() <= 30);
 }
 

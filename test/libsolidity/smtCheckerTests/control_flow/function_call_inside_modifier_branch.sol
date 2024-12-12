@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	modifier m(address a) {
@@ -18,7 +16,7 @@ contract C
 		return a;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 5084: (249-259): Type conversion is not yet fully supported and might yield false positives.
-// Warning 5084: (118-128): Type conversion is not yet fully supported and might yield false positives.
-// Warning 5084: (249-259): Type conversion is not yet fully supported and might yield false positives.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

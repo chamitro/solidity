@@ -14,20 +14,22 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that uses the simplification rules to simplify expressions.
  */
 
 #include <libyul/optimiser/ExpressionSimplifier.h>
 
+#include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/optimiser/SimplificationRules.h>
-#include <libyul/optimiser/Semantics.h>
 #include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/AsmData.h>
+#include <libyul/optimiser/OptimizerUtilities.h>
+#include <libyul/AST.h>
+#include <libyul/Utilities.h>
 
-#include <libsolutil/CommonData.h>
+#include <libevmasm/SemanticInformation.h>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 
@@ -39,17 +41,40 @@ void ExpressionSimplifier::run(OptimiserStepContext& _context, Block& _ast)
 void ExpressionSimplifier::visit(Expression& _expression)
 {
 	ASTModifier::visit(_expression);
-	while (auto match = SimplificationRules::findFirstMatch(_expression, m_dialect, m_value))
-	{
-		// Do not apply the rule if it removes non-constant parts of the expression.
-		// TODO: The check could actually be less strict than "movable".
-		// We only require "Does not cause side-effects".
-		// Note: References to variables that are only assigned once are always movable,
-		// so if the value of the variable is not movable, the expression that references
-		// the variable still is.
 
-		if (match->removesNonConstants && !SideEffectsCollector(m_dialect, _expression).movable())
-			return;
-		_expression = match->action().toExpression(locationOf(_expression));
+	while (auto const* match = SimplificationRules::findFirstMatch(
+		_expression,
+		m_dialect,
+		[this](YulName _var) { return variableValue(_var); }
+	))
+	{
+		auto const* evmDialect = dynamic_cast<EVMDialect const*>(&m_dialect);
+		yulAssert(evmDialect);
+		_expression = match->action().toExpression(debugDataOf(_expression), *evmDialect);
 	}
+
+	if (auto* functionCall = std::get_if<FunctionCall>(&_expression))
+		if (std::optional<evmasm::Instruction> instruction = toEVMInstruction(m_dialect, functionCall->functionName))
+			for (auto op: evmasm::SemanticInformation::readWriteOperations(*instruction))
+				if (op.startParameter && op.lengthParameter)
+				{
+					Expression& startArgument = functionCall->arguments.at(*op.startParameter);
+					Expression const& lengthArgument = functionCall->arguments.at(*op.lengthParameter);
+					if (
+						knownToBeZero(lengthArgument) &&
+						!knownToBeZero(startArgument) &&
+						!std::holds_alternative<FunctionCall>(startArgument)
+					)
+						startArgument = Literal{debugDataOf(startArgument), LiteralKind::Number, LiteralValue{0, std::nullopt}};
+				}
+}
+
+bool ExpressionSimplifier::knownToBeZero(Expression const& _expression) const
+{
+	if (auto const* literal = std::get_if<Literal>(&_expression))
+		return literal->value.value() == 0;
+	else if (auto const* identifier = std::get_if<Identifier>(&_expression))
+		return valueOfIdentifier(identifier->name) == 0;
+	else
+		return false;
 }

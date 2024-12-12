@@ -50,7 +50,7 @@ contract ico is safeMath {
     uint256 public totalMint;
     uint256 public totalPremiumMint;
 
-    constructor(address payable foundation, address priceSet, uint256 exchangeRate, uint256 startBlockNum, address[] memory genesisAddr, uint256[] memory genesisValue) public {
+    constructor(address payable foundation, address priceSet, uint256 exchangeRate, uint256 startBlockNum, address[] memory genesisAddr, uint256[] memory genesisValue) {
         /*
             Installation function.
 
@@ -65,7 +65,7 @@ contract ico is safeMath {
         icoExchangeRate = exchangeRate;
         icoExchangeRateSetBlock = block.number + exchangeRateDelay;
         icoEtcPriceAddr = priceSet;
-        owner = msg.sender;
+        owner = payable(msg.sender);
         if ( startBlockNum > 0 ) {
             require( startBlockNum >= block.number );
             startBlock = startBlockNum;
@@ -272,7 +272,7 @@ contract ico is safeMath {
         require( brought[msg.sender].eth > 0 );
         uint256 _val = brought[msg.sender].eth * 90 / 100;
         delete brought[msg.sender];
-        require( msg.sender.send(_val) );
+        require( payable(msg.sender).send(_val) );
     }
 
     receive () external payable {
@@ -281,10 +281,10 @@ contract ico is safeMath {
             If they call the contract without any function then this process will be taken place.
         */
         require( isICO() );
-        require( buy(msg.sender, address(0x00)) );
+        require( buy(payable(msg.sender), address(0x00)) );
     }
 
-    function buy(address payable beneficiaryAddress, address affilateAddress) public payable returns (bool success) {
+    function buy(address payable beneficiaryAddress, address affiliateAddress) public payable returns (bool success) {
         /*
             Buying a token
 
@@ -297,12 +297,12 @@ contract ico is safeMath {
                 More than 1e10 token: 3%
                 More than 1e9 token: 2% below 1%
             @beneficiaryAddress     The address of the accredited where the token will be sent.
-            @affilateAddress        The address of the person who offered who will get the referral reward. It can not be equal with the beneficiaryAddress.
+            @affiliateAddress        The address of the person who offered who will get the referral reward. It can not be equal with the beneficiaryAddress.
         */
         require( isICO() );
-        if ( beneficiaryAddress == address(0x00)) { beneficiaryAddress = msg.sender; }
-        if ( beneficiaryAddress == affilateAddress ) {
-            affilateAddress = address(0x00);
+        if ( beneficiaryAddress == address(0x00)) { beneficiaryAddress = payable(msg.sender); }
+        if ( beneficiaryAddress == affiliateAddress ) {
+            affiliateAddress = address(0x00);
         }
         uint256 _value = msg.value;
         if ( beneficiaryAddress.balance < 0.2 ether ) {
@@ -317,9 +317,9 @@ contract ico is safeMath {
         totalMint = safeAdd(totalMint, _reward);
         require( foundationAddress.send(_value * 10 / 100) );
         uint256 extra;
-        if ( affilateAddress != address(0x00) && ( brought[affilateAddress].eth > 0 || interestDB[affilateAddress][0].amount > 0 ) ) {
-            affiliate[affilateAddress].weight = safeAdd(affiliate[affilateAddress].weight, _reward);
-            extra = affiliate[affilateAddress].weight;
+        if ( affiliateAddress != address(0x00) && ( brought[affiliateAddress].eth > 0 || interestDB[affiliateAddress][0].amount > 0 ) ) {
+            affiliate[affiliateAddress].weight = safeAdd(affiliate[affiliateAddress].weight, _reward);
+            extra = affiliate[affiliateAddress].weight;
             uint256 rate;
             if (extra >= 1e12) {
                 rate = 5;
@@ -332,12 +332,12 @@ contract ico is safeMath {
             } else {
                 rate = 1;
             }
-            extra = safeSub(extra * rate / 100, affiliate[affilateAddress].paid);
-            affiliate[affilateAddress].paid = safeAdd(affiliate[affilateAddress].paid, extra);
-            token(tokenAddr).mint(affilateAddress, extra);
+            extra = safeSub(extra * rate / 100, affiliate[affiliateAddress].paid);
+            affiliate[affiliateAddress].paid = safeAdd(affiliate[affiliateAddress].paid, extra);
+            token(tokenAddr).mint(affiliateAddress, extra);
         }
         checkPremium(beneficiaryAddress);
-        emit EICO(beneficiaryAddress, _reward, affilateAddress, extra);
+        emit EICO(beneficiaryAddress, _reward, affiliateAddress, extra);
         return true;
     }
 
@@ -372,5 +372,5 @@ contract ico is safeMath {
         return startBlock <= block.number && block.number <= icoDelay && ( ! aborted ) && ( ! closed );
     }
 
-    event EICO(address indexed Address, uint256 indexed value, address Affiliate, uint256 AffilateValue);
+    event EICO(address indexed Address, uint256 indexed value, address Affiliate, uint256 AffiliateValue);
 }

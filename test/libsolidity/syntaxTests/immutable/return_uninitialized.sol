@@ -1,10 +1,10 @@
 contract C {
     uint immutable x;
-    constructor() public {
+    constructor() {
         return;
 
         x = 1;
     }
 }
 // ----
-// TypeError 2658: (70-77): Construction control flow ends without initializing all immutable state variables.
+// Warning 5740: (80-85): Unreachable code.

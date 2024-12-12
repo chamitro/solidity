@@ -23,23 +23,82 @@ from pygments_lexer_solidity import SolidityLexer, YulLexer
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-def setup(sphinx):
-    thisdir = os.path.dirname(os.path.realpath(__file__))
-    sys.path.insert(0, thisdir + '/utils')
-    sphinx.add_lexer('Solidity', SolidityLexer())
-    sphinx.add_lexer('Yul', YulLexer())
+ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 
-    sphinx.add_stylesheet('css/custom.css')
+sys.path.insert(0, os.path.join(ROOT_PATH, 'ext'))
+
+def setup(sphinx):
+    sphinx.add_lexer('Solidity', SolidityLexer)
+    sphinx.add_lexer('Yul', YulLexer)
+
+    sphinx.add_css_file('css/fonts.css')
+    sphinx.add_css_file('css/custom.css')
+    sphinx.add_css_file('css/custom-dark.css')
+    sphinx.add_css_file('css/pygments.css')
+
+# -- RTD GitHub configuration ---------------------------------------------
+
+# Taken from:
+# https://github.com/readthedocs/readthedocs.org/blob/e366e7fc8649fbcf1b6d06ecc12c5f7766144c46/readthedocs/projects/constants.py#L350
+GITHUB_REGEXS = [
+    re.compile(r"github.com/(.+)/(.+)(?:\.git){1}$"),
+    # This must come before the one without a / to make sure we don't capture the /
+    re.compile(r"github.com/(.+)/(.+)/"),
+    re.compile(r"github.com/(.+)/(.+)"),
+    re.compile(r"github.com:(.+)/(.+)\.git$"),
+]
+
+# Taken and adapted from:
+# https://github.com/readthedocs/readthedocs.org/blob/e366e7fc8649fbcf1b6d06ecc12c5f7766144c46/readthedocs/builds/utils.py#L24
+def get_github_username_repo(url):
+    if "github" in url:
+        for regex in GITHUB_REGEXS:
+            match = regex.search(url)
+            if match:
+                return match.groups()
+    return (None, None)
+
+display_github = False
+# NOTE: RTD_DISPLAY_GITHUB, RTD_GITHUB_USER and RTD_GITHUB_REPO are set in the RTD project settings
+github_user = os.getenv("RTD_GITHUB_USER")
+github_repo = os.getenv("RTD_GITHUB_REPO")
+
+if github_user and github_repo:
+    display_github = True
+else:
+    git_clone_url = os.getenv("READTHEDOCS_GIT_CLONE_URL")
+    if git_clone_url:
+        github_user, github_repo = get_github_username_repo(git_clone_url)
+        if github_user and github_repo:
+            display_github = True
+
+display_github_env = os.getenv("RTD_DISPLAY_GITHUB")
+if display_github_env:
+    display_github = display_github_env.lower() == "true"
+
+html_context = {
+    "display_github": display_github,
+    "github_user": github_user,
+    "github_repo": github_repo,
+    "github_version": os.getenv("READTHEDOCS_VERSION", "develop"),
+    "conf_py_path": "/docs/",
+}
 
 # -- General configuration ------------------------------------------------
-
 # If your documentation needs a minimal Sphinx version, state it here.
 #needs_sphinx = '1.0'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = []
+extensions = [
+    'sphinx_a4doc',
+    'html_extra_template_renderer',
+    'remix_code_links',
+    'sphinx.ext.imgconverter',
+]
+
+a4_base_path = os.path.dirname(__file__) + '/grammar'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -55,17 +114,17 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Solidity'
-copyright = '2016-2020, Ethereum'
+project_copyright = '2016-2024, The Solidity Authors'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-with open('../CMakeLists.txt', 'r') as f:
+with open('../CMakeLists.txt', 'r', encoding='utf8') as f:
     version = re.search('PROJECT_VERSION "([^"]+)"', f.read()).group(1)
 # The full version, including alpha/beta/rc tags.
-if os.path.isfile('../prerelease.txt') != True or os.path.getsize('../prerelease.txt') == 0:
+if not os.path.isfile('../prerelease.txt') or os.path.getsize('../prerelease.txt') == 0:
     release = version
 else:
     # This is a prerelease version
@@ -83,7 +142,7 @@ else:
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', 'contracts', 'types', 'examples']
+exclude_patterns = ['_build', 'contracts', 'types', 'examples', 'grammar']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -121,7 +180,10 @@ html_theme = 'sphinx_rtd_theme'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
+html_theme_options = {
+    'logo_only': True,
+    'display_version': True,
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
@@ -135,12 +197,12 @@ html_theme = 'sphinx_rtd_theme'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-#html_logo = None
+# html_logo = "logo.svg"
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-#html_favicon = None
+html_favicon = "_static/img/favicon.ico"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -149,12 +211,25 @@ html_static_path = ['_static']
 
 html_css_files = ["css/toggle.css"]
 
-html_js_files = ["js/toggle.js"]
+html_js_files = ["js/constants.js", "js/initialize.js", "js/toggle.js"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
 html_extra_path = ["_static/css"]
+
+# List of templates of static files to be included in the HTML output.
+# Keys represent paths to input files and values are dicts containing:
+# - target: The path where the rendered template should be placed.
+# - context: A dictionary listing variables that can be used inside the template.
+# All paths must be absolute.
+# Rendered templates are automatically added to html_extra_path setting.
+html_extra_templates = {
+    os.path.join(ROOT_PATH, "robots.txt.template"): {
+        'target': os.path.join(ROOT_PATH, "_static/robots.txt"),
+        'context': {'LATEST_VERSION': version},
+    }
+}
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -184,7 +259,7 @@ html_extra_path = ["_static/css"]
 #html_show_sourcelink = True
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
-#html_show_sphinx = True
+html_show_sphinx = False
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 #html_show_copyright = True
@@ -218,7 +293,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-        ('index', 'solidity.tex', 'Solidity Documentation', 'Ethereum', 'manual'),
+    ('index', 'solidity.tex', 'Solidity Documentation', 'Ethereum', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

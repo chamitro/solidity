@@ -6,4 +6,4 @@ contract test {
     }
 }
 // ----
-// SyntaxError 9636: (70-75): Use of unary + is disallowed.
+// ParserError 9636: (70-71): Use of unary + is disallowed.

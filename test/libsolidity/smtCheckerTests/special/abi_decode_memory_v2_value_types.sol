@@ -1,19 +1,15 @@
-pragma experimental SMTChecker;
-pragma experimental "ABIEncoderV2";
+pragma abicoder v2;
 
 contract C {
-  function f() public pure {
-    (uint x1, bool b1) = abi.decode("abc", (uint, bool));
-    (uint x2, bool b2) = abi.decode("abc", (uint, bool));
-	// False positive until abi.* are implemented as uninterpreted functions.
-	assert(x1 == x2);
-  }
+	function f(bytes memory data) public pure {
+		(uint x1, bool b1) = abi.decode(data, (uint, bool));
+		(uint x2, bool b2) = abi.decode(data, (uint, bool));
+		assert(x1 == x2);
+	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2072: (125-132): Unused local variable.
-// Warning 2072: (183-190): Unused local variable.
-// Warning 8364: (136-139): Assertion checker does not yet implement type abi
-// Warning 4588: (136-167): Assertion checker does not yet implement this type of function call.
-// Warning 8364: (194-197): Assertion checker does not yet implement type abi
-// Warning 4588: (194-225): Assertion checker does not yet implement this type of function call.
-// Warning 4661: (303-319): Assertion violation happens here
+// Warning 2072: (91-98): Unused local variable.
+// Warning 2072: (146-153): Unused local variable.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

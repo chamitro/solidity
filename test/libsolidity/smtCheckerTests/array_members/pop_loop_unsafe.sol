@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	uint[] a;
 	function f(uint l) public {
@@ -10,5 +8,8 @@ contract C {
 		a.pop();
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2529: (150-157): Empty array "pop" detected here.
+// Warning 2529: (117-124): CHC: Empty array "pop" happens here.
+// Info 1391: CHC: 2 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

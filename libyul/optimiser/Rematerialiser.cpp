@@ -24,75 +24,64 @@
 #include <libyul/optimiser/ASTCopier.h>
 #include <libyul/optimiser/NameCollector.h>
 #include <libyul/Exceptions.h>
-#include <libyul/AsmData.h>
+#include <libyul/AST.h>
 
-using namespace std;
+#include <range/v3/algorithm/all_of.hpp>
+
 using namespace solidity;
 using namespace solidity::yul;
 
-void Rematerialiser::run(Dialect const& _dialect, Block& _ast, set<YulString> _varsToAlwaysRematerialize)
+void Rematerialiser::run(Dialect const& _dialect, Block& _ast, std::set<YulName> _varsToAlwaysRematerialize, bool _onlySelectedVariables)
 {
-	Rematerialiser{_dialect, _ast, std::move(_varsToAlwaysRematerialize)}(_ast);
-}
-
-void Rematerialiser::run(
-	Dialect const& _dialect,
-	FunctionDefinition& _function,
-	set<YulString> _varsToAlwaysRematerialize
-)
-{
-	Rematerialiser{_dialect, _function, std::move(_varsToAlwaysRematerialize)}(_function);
+	Rematerialiser{_dialect, _ast, std::move(_varsToAlwaysRematerialize), _onlySelectedVariables}(_ast);
 }
 
 Rematerialiser::Rematerialiser(
 	Dialect const& _dialect,
 	Block& _ast,
-	set<YulString> _varsToAlwaysRematerialize
+	std::set<YulName> _varsToAlwaysRematerialize,
+	bool _onlySelectedVariables
 ):
-	DataFlowAnalyzer(_dialect),
-	m_referenceCounts(ReferencesCounter::countReferences(_ast)),
-	m_varsToAlwaysRematerialize(std::move(_varsToAlwaysRematerialize))
-{
-}
-
-Rematerialiser::Rematerialiser(
-	Dialect const& _dialect,
-	FunctionDefinition& _function,
-	set<YulString> _varsToAlwaysRematerialize
-):
-	DataFlowAnalyzer(_dialect),
-	m_referenceCounts(ReferencesCounter::countReferences(_function)),
-	m_varsToAlwaysRematerialize(std::move(_varsToAlwaysRematerialize))
+	DataFlowAnalyzer(_dialect, MemoryAndStorage::Ignore),
+	m_referenceCounts(VariableReferencesCounter::countReferences(_ast)),
+	m_varsToAlwaysRematerialize(std::move(_varsToAlwaysRematerialize)),
+	m_onlySelectedVariables(_onlySelectedVariables)
 {
 }
 
 void Rematerialiser::visit(Expression& _e)
 {
-	if (holds_alternative<Identifier>(_e))
+	if (std::holds_alternative<Identifier>(_e))
 	{
 		Identifier& identifier = std::get<Identifier>(_e);
-		YulString name = identifier.name;
-		if (m_value.count(name))
+		YulName name = identifier.name;
+		if (AssignedValue const* value = variableValue(name))
 		{
-			assertThrow(m_value.at(name).value, OptimizerException, "");
-			AssignedValue const& value = m_value.at(name);
+			assertThrow(value->value, OptimizerException, "");
 			size_t refs = m_referenceCounts[name];
-			size_t cost = CodeCost::codeCost(m_dialect, *value.value);
+			size_t cost = CodeCost::codeCost(m_dialect, *value->value);
 			if (
-				(refs <= 1 && value.loopDepth == m_loopDepth) ||
-				cost == 0 ||
-				(refs <= 5 && cost <= 1 && m_loopDepth == 0) ||
-				m_varsToAlwaysRematerialize.count(name)
+				(
+					!m_onlySelectedVariables && (
+						(refs <= 1 && value->loopDepth == m_loopDepth) ||
+						cost == 0 ||
+						(refs <= 5 && cost <= 1 && m_loopDepth == 0)
+					)
+				) || m_varsToAlwaysRematerialize.count(name)
 			)
 			{
 				assertThrow(m_referenceCounts[name] > 0, OptimizerException, "");
-				for (auto const& ref: m_references.forward[name])
-					assertThrow(inScope(ref), OptimizerException, "");
-				// update reference counts
-				m_referenceCounts[name]--;
-				for (auto const& ref: ReferencesCounter::countReferences(*value.value))
-					m_referenceCounts[ref.first] += ref.second;
-				_e = (ASTCopier{}).translate(*value.value);
+				auto variableReferences = references(name);
+				if (!variableReferences || ranges::all_of(*variableReferences, [&](auto const& ref) { return inScope(ref); }))
+				{
+					// update reference counts
+					m_referenceCounts[name]--;
+					for (auto const& ref: VariableReferencesCounter::countReferences(
+						*value->value
+					))
+						m_referenceCounts[ref.first] += ref.second;
+					_e = (ASTCopier{}).translate(*value->value);
+				}
 			}
 		}
 	}
@@ -101,16 +90,15 @@ void Rematerialiser::visit(Expression& _e)
 
 void LiteralRematerialiser::visit(Expression& _e)
 {
-	if (holds_alternative<Identifier>(_e))
+	if (std::holds_alternative<Identifier>(_e))
 	{
 		Identifier& identifier = std::get<Identifier>(_e);
-		YulString name = identifier.name;
-		if (m_value.count(name))
+		YulName name = identifier.name;
+		if (AssignedValue const* value = variableValue(name))
 		{
-			Expression const* value = m_value.at(name).value;
-			assertThrow(value, OptimizerException, "");
-			if (holds_alternative<Literal>(*value))
-				_e = *value;
+			assertThrow(value->value, OptimizerException, "");
+			if (std::holds_alternative<Literal>(*value->value))
+				_e = *value->value;
 		}
 	}
 	DataFlowAnalyzer::visit(_e);

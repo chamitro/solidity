@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file CommonSubexpressionEliminator.h
  * @author Christian <c@ethdev.com>
@@ -23,11 +24,12 @@
 
 #pragma once
 
-#include <vector>
 #include <map>
+#include <ostream>
 #include <set>
 #include <tuple>
-#include <ostream>
+#include <unordered_map>
+#include <vector>
 #include <libsolutil/CommonIO.h>
 #include <libsolutil/Exceptions.h>
 #include <libevmasm/ExpressionClasses.h>
@@ -140,10 +142,10 @@ private:
 	bool removeStackTopIfPossible();
 
 	/// Appends a dup instruction to m_generatedItems to retrieve the element at the given stack position.
-	void appendDup(int _fromPosition, langutil::SourceLocation const& _location);
+	void appendDup(int _fromPosition,  langutil::DebugData::ConstPtr _debugData);
 	/// Appends a swap instruction to m_generatedItems to retrieve the element at the given stack position.
 	/// @note this might also remove the last item if it exactly the same swap instruction.
-	void appendOrRemoveSwap(int _fromPosition, langutil::SourceLocation const& _location);
+	void appendOrRemoveSwap(int _fromPosition,  langutil::DebugData::ConstPtr _debugData);
 	/// Appends the given assembly item.
 	void appendItem(AssemblyItem const& _item);
 
@@ -153,11 +155,11 @@ private:
 	/// Current height of the stack relative to the start.
 	int m_stackHeight = 0;
 	/// If (b, a) is in m_requests then b is needed to compute a.
-	std::multimap<Id, Id> m_neededBy;
+	std::unordered_multimap<Id, Id> m_neededBy;
 	/// Current content of the stack.
 	std::map<int, Id> m_stack;
 	/// Current positions of equivalence classes, equal to the empty set if already deleted.
-	std::map<Id, std::set<int>> m_classPositions;
+	std::unordered_map<Id, std::set<int>> m_classPositions;
 
 	/// The actual equivalence class items and how to compute them.
 	ExpressionClasses& m_expressionClasses;
@@ -177,9 +179,15 @@ AssemblyItemIterator CommonSubexpressionEliminator::feedItems(
 )
 {
 	assertThrow(!m_breakingItem, OptimizerException, "Invalid use of CommonSubexpressionEliminator.");
-	for (; _iterator != _end && !SemanticInformation::breaksCSEAnalysisBlock(*_iterator, _msizeImportant); ++_iterator)
+	unsigned const maxChunkSize = 2000;
+	unsigned chunkSize = 0;
+	for (
+		;
+		_iterator != _end && !SemanticInformation::breaksCSEAnalysisBlock(*_iterator, _msizeImportant) && chunkSize < maxChunkSize;
+		++_iterator, ++chunkSize
+	)
 		feedItem(*_iterator);
-	if (_iterator != _end)
+	if (_iterator != _end && chunkSize < maxChunkSize)
 		m_breakingItem = &(*_iterator++);
 	return _iterator;
 }

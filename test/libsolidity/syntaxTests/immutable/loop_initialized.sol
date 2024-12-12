@@ -1,9 +1,7 @@
 contract C {
     uint immutable x;
-    constructor() public {
+    constructor() {
         while (true)
             x = 1;
     }
 }
-// ----
-// TypeError 6672: (95-96): Immutable variables can only be initialized once, not in a while statement.

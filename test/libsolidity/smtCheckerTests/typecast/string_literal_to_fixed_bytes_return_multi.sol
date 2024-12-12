@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract C {
     function h() public pure returns (bytes32 val, bytes3 val2) { return ("abc", "def"); }
     function g() public pure returns (bytes32 val) { return "abc"; }
@@ -11,5 +10,8 @@ contract C {
 		assert(v2 == "cde");
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (442-461): Assertion violation happens here
+// Warning 6328: (410-429): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

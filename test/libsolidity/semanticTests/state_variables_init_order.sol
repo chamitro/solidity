@@ -8,7 +8,5 @@ contract A {
 }
 contract B is A {
 }
-// ====
-// compileViaYul: also
 // ----
 // x() -> 1

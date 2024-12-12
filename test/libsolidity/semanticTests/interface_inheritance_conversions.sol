@@ -32,10 +32,12 @@ contract C {
         return (sb.parentFun(), sb.subBFun());
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // convertParent() -> 1
+// gas irOptimized: 85524
 // convertSubA() -> 1, 2
+// gas irOptimized: 86155
+// gas legacy: 99047
 // convertSubB() -> 1, 3
+// gas irOptimized: 86098
+// gas legacy: 98981

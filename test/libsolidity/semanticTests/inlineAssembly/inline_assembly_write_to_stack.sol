@@ -6,8 +6,5 @@ contract C {
         }
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 7, "abcdef"

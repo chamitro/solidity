@@ -1,8 +1,6 @@
-pragma experimental SMTChecker;
-
 contract C{
     uint x;
-	constructor(uint y) public {
+	constructor(uint y) {
 		assert(x == 1);
 		x = 1;
 	}
@@ -19,12 +17,11 @@ contract C{
 		--x;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 5667: (70-76): Unused function parameter. Remove or comment out the variable name to silence this warning.
-// Warning 4661: (145-159): Assertion violation happens here
-// Warning 2661: (163-166): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 2661: (170-173): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 2661: (241-244): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 4661: (191-205): Assertion violation happens here
-// Warning 4144: (241-244): Underflow (resulting value less than 0) happens here
-// Warning 4661: (89-103): Assertion violation happens here
+// Warning 5667: (37-43): Unused function parameter. Remove or comment out the variable name to silence this warning.
+// Warning 6328: (49-63): CHC: Assertion violation happens here.
+// Warning 6328: (105-119): CHC: Assertion violation happens here.
+// Warning 6328: (151-165): CHC: Assertion violation happens here.
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

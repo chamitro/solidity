@@ -14,9 +14,11 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
+#include <algorithm>
 #include <set>
 
 namespace solidity::yul
@@ -29,30 +31,60 @@ namespace solidity::yul
  */
 struct SideEffects
 {
+	/// Corresponds to the effect that a Yul-builtin has on a generic data location (storage, memory
+	/// and other blockchain state).
+	enum Effect
+	{
+		None,
+		Read,
+		Write
+	};
+
+	friend Effect operator+(Effect const& _a, Effect const& _b)
+	{
+		return static_cast<Effect>(std::max(static_cast<int>(_a), static_cast<int>(_b)));
+	}
+
 	/// If true, expressions in this code can be freely moved and copied without altering the
 	/// semantics.
 	/// At statement level, it means that functions containing this code can be
 	/// called multiple times, their calls can be rearranged and calls can also be
 	/// deleted without changing the semantics.
-	/// This means it cannot depend on storage or memory, cannot have any side-effects,
+	/// This means it cannot depend on storage, memory or transient storage, cannot have any side-effects,
 	/// but it can depend on state that is constant across an EVM-call.
 	bool movable = true;
+	/// If true, the expressions in this code can be moved or copied (together with their arguments)
+	/// across control flow branches and instructions as long as these instructions' 'effects' do
+	/// not influence the 'effects' of the aforementioned expressions.
+	bool movableApartFromEffects = true;
 	/// If true, the code can be removed without changing the semantics.
-	bool sideEffectFree = true;
+	bool canBeRemoved = true;
 	/// If true, the code can be removed without changing the semantics as long as
 	/// the whole program does not contain the msize instruction.
-	bool sideEffectFreeIfNoMSize = true;
-	/// If false, storage is guaranteed to be unchanged by the code under all
-	/// circumstances.
-	bool invalidatesStorage = false;
-	/// If false, memory is guaranteed to be unchanged by the code under all
-	/// circumstances.
-	bool invalidatesMemory = false;
+	bool canBeRemovedIfNoMSize = true;
+	/// If false, the code calls a for-loop or a recursive function, and therefore potentially loops
+	/// infinitely. All builtins are set to true by default, even `invalid()`.
+	bool cannotLoop = true;
+	/// Can write, read or have no effect on the blockchain state, when the value of `otherState` is
+	/// `Write`, `Read` or `None` respectively.
+	Effect otherState = None;
+	/// Can write, read or have no effect on storage, when the value of `storage` is `Write`, `Read`
+	/// or `None` respectively. When the value is `Write`, the expression can invalidate storage,
+	/// potentially indirectly through external calls.
+	Effect storage = None;
+	/// Can write, read or have no effect on memory, when the value of `memory` is `Write`, `Read`
+	/// or `None` respectively. Note that, when the value is `Read`, the expression can have an
+	/// effect on `msize()`.
+	Effect memory = None;
+	/// Can write, read or have no effect on transient storage, when the value of `transientStorage` is `Write`, `Read`
+	/// or `None` respectively.  When the value is `Write`, the expression can invalidate transient storage,
+	/// potentially indirectly through external calls.
+	Effect transientStorage = None;
 
 	/// @returns the worst-case side effects.
 	static SideEffects worst()
 	{
-		return SideEffects{false, false, false, true, true};
+		return SideEffects{false, false, false, false, false, Write, Write, Write, Write};
 	}
 
 	/// @returns the combined side effects of two pieces of code.
@@ -60,10 +92,14 @@ struct SideEffects
 	{
 		return SideEffects{
 			movable && _other.movable,
-			sideEffectFree && _other.sideEffectFree,
-			sideEffectFreeIfNoMSize && _other.sideEffectFreeIfNoMSize,
-			invalidatesStorage || _other.invalidatesStorage,
-			invalidatesMemory || _other.invalidatesMemory
+			movableApartFromEffects && _other.movableApartFromEffects,
+			canBeRemoved && _other.canBeRemoved,
+			canBeRemovedIfNoMSize && _other.canBeRemovedIfNoMSize,
+			cannotLoop && _other.cannotLoop,
+			otherState + _other.otherState,
+			storage + _other.storage,
+			memory + _other.memory,
+			transientStorage + _other.transientStorage
 		};
 	}
 
@@ -78,10 +114,14 @@ struct SideEffects
 	{
 		return
 			movable == _other.movable &&
-			sideEffectFree == _other.sideEffectFree &&
-			sideEffectFreeIfNoMSize == _other.sideEffectFreeIfNoMSize &&
-			invalidatesStorage == _other.invalidatesStorage &&
-			invalidatesMemory == _other.invalidatesMemory;
+			movableApartFromEffects == _other.movableApartFromEffects &&
+			canBeRemoved == _other.canBeRemoved &&
+			canBeRemovedIfNoMSize == _other.canBeRemovedIfNoMSize &&
+			cannotLoop == _other.cannotLoop &&
+			otherState == _other.otherState &&
+			storage == _other.storage &&
+			memory == _other.memory &&
+			transientStorage == _other.transientStorage;
 	}
 };
 

@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Christian <c@ethdev.com>
  * @date 2014
@@ -25,19 +26,32 @@
 #include <libsolidity/codegen/ContractCompiler.h>
 #include <libevmasm/Assembly.h>
 
-using namespace std;
+#include <range/v3/algorithm/none_of.hpp>
+
 using namespace solidity;
 using namespace solidity::frontend;
 
 void Compiler::compileContract(
 	ContractDefinition const& _contract,
-	std::map<ContractDefinition const*, shared_ptr<Compiler const>> const& _otherCompilers,
+	std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> const& _otherCompilers,
 	bytes const& _metadata
 )
 {
+	auto static isTransientReferenceType = [](VariableDeclaration const* _varDeclaration) {
+		solAssert(_varDeclaration && _varDeclaration->type());
+		return
+			_varDeclaration->referenceLocation() == VariableDeclaration::Location::Transient &&
+			!_varDeclaration->type()->isValueType();
+	};
+
+	solUnimplementedAssert(
+		ranges::none_of(_contract.stateVariables(), isTransientReferenceType),
+		"Transient storage reference type variables are not supported."
+	);
+
 	ContractCompiler runtimeCompiler(nullptr, m_runtimeContext, m_optimiserSettings);
 	runtimeCompiler.compileContract(_contract, _otherCompilers);
-	m_runtimeContext.appendAuxiliaryData(_metadata);
+	m_runtimeContext.appendToAuxiliaryData(_metadata);
 
 	// This might modify m_runtimeContext because it can access runtime functions at
 	// creation time.
@@ -50,17 +64,12 @@ void Compiler::compileContract(
 
 	m_context.optimise(m_optimiserSettings);
 
-	solAssert(m_context.requestedYulFunctionsRan(), "requestedYulFunctions() was not called.");
-	solAssert(m_runtimeContext.requestedYulFunctionsRan(), "requestedYulFunctions() was not called.");
+	solAssert(m_context.appendYulUtilityFunctionsRan(), "appendYulUtilityFunctions() was not called.");
+	solAssert(m_runtimeContext.appendYulUtilityFunctionsRan(), "appendYulUtilityFunctions() was not called.");
 }
 
 std::shared_ptr<evmasm::Assembly> Compiler::runtimeAssemblyPtr() const
 {
 	solAssert(m_context.runtimeContext(), "");
 	return m_context.runtimeContext()->assemblyPtr();
-}
-
-evmasm::AssemblyItem Compiler::functionEntryLabel(FunctionDefinition const& _function) const
-{
-	return m_runtimeContext.functionEntryLabelIfExists(_function);
 }

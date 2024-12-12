@@ -59,8 +59,6 @@ contract C {
         } while(false);
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f(bool): 0 -> 23
 // f(bool): 1 -> 42

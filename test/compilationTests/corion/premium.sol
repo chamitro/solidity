@@ -11,9 +11,15 @@ contract thirdPartyPContractAbstract {
 
 contract ptokenDB is tokenDB {}
 
+/**
+ *
+ * @title Corion Platform Premium Token
+ * @author iFA @ Corion Platform
+ *
+ */
 contract premium is module, safeMath {
     function replaceModule(address payable addr) external override returns (bool success) {
-        require( super.isModuleHandler(msg.sender) );
+        require( super.isModuleHandler(payable(msg.sender)) );
         require( db.replaceOwner(addr) );
         super._replaceModule(addr);
         return true;
@@ -23,12 +29,6 @@ contract premium is module, safeMath {
         require( _success && _active );
         _;
     }
-    /**
-    *
-    * @title Corion Platform Premium Token
-    * @author iFA @ Corion Platform
-    *
-    */
 
     string public name = "Corion Premium";
     string public symbol = "CORP";
@@ -40,7 +40,7 @@ contract premium is module, safeMath {
 
     mapping(address => bool) public genesis;
 
-    constructor(bool forReplace, address payable moduleHandler, address dbAddress, address icoContractAddr, address[] memory genesisAddr, uint256[] memory genesisValue) public {
+    constructor(bool forReplace, address payable moduleHandler, address dbAddress, address icoContractAddr, address[] memory genesisAddr, uint256[] memory genesisValue) {
         /*
             Setup function.
             If an ICOaddress is defined then the balance of the genesis addresses will be set as well.
@@ -202,11 +202,11 @@ contract premium is module, safeMath {
             @success    If the function was successful.
         */
         if ( from != msg.sender ) {
-            (bool _success, uint256 _reamining, uint256 _nonce) = db.getAllowance(from, msg.sender);
+            (bool _success, uint256 _remaining, uint256 _nonce) = db.getAllowance(from, msg.sender);
             require( _success );
-            _reamining = safeSub(_reamining, amount);
+            _remaining = safeSub(_remaining, amount);
             _nonce = safeAdd(_nonce, 1);
-            require( db.setAllowance(from, msg.sender, _reamining, _nonce) );
+            require( db.setAllowance(from, msg.sender, _remaining, _nonce) );
             emit AllowanceUsed(msg.sender, from, amount);
         }
         bytes memory _data;
@@ -310,7 +310,7 @@ contract premium is module, safeMath {
 
             @addr       The address which is needed to be checked.
 
-            @success    Is the address crontact or not
+            @success    Is the address contract or not
         */
         uint256 _codeLength;
         assembly {

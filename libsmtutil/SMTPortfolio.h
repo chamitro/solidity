@@ -14,15 +14,15 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 
-#include <libsmtutil/SolverInterface.h>
+#include <libsmtutil/BMCSolverInterface.h>
 #include <libsolidity/interface/ReadFile.h>
 #include <libsolutil/FixedHash.h>
 
-#include <boost/noncopyable.hpp>
 #include <map>
 #include <vector>
 
@@ -35,14 +35,14 @@ namespace solidity::smtutil
  * It also checks whether different solvers give conflicting answers
  * to SMT queries.
  */
-class SMTPortfolio: public SolverInterface, public boost::noncopyable
+class SMTPortfolio: public BMCSolverInterface
 {
 public:
-	SMTPortfolio(
-		std::map<util::h256, std::string> const& _smtlib2Responses,
-		frontend::ReadCallback::Callback const& _smtCallback,
-		SMTSolverChoice _enabledSolvers
-	);
+	/// Noncopyable.
+	SMTPortfolio(SMTPortfolio const&) = delete;
+	SMTPortfolio& operator=(SMTPortfolio const&) = delete;
+
+	SMTPortfolio(std::vector<std::unique_ptr<BMCSolverInterface>> solvers, std::optional<unsigned> _queryTimeout);
 
 	void reset() override;
 
@@ -56,11 +56,14 @@ public:
 	std::pair<CheckResult, std::vector<std::string>> check(std::vector<Expression> const& _expressionsToEvaluate) override;
 
 	std::vector<std::string> unhandledQueries() override;
-	unsigned solvers() override { return m_solvers.size(); }
+	size_t solvers() override { return m_solvers.size(); }
+
+	std::string dumpQuery(std::vector<Expression> const& _expressionsToEvaluate);
+
 private:
 	static bool solverAnswered(CheckResult result);
 
-	std::vector<std::unique_ptr<SolverInterface>> m_solvers;
+	std::vector<std::unique_ptr<BMCSolverInterface>> m_solvers;
 
 	std::vector<Expression> m_assertions;
 };

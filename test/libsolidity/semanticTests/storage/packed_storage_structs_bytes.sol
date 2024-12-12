@@ -40,6 +40,8 @@ contract C {
             y == 0x07;
     }
 }
-
 // ----
 // test() -> true
+// gas irOptimized: 132633
+// gas legacy: 136010
+// gas legacyOptimized: 133478

@@ -14,18 +14,50 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 #include <libsolutil/Assertions.h>
 #include <libsolutil/Exceptions.h>
 
+#include <boost/preprocessor/cat.hpp>
+#include <boost/preprocessor/facilities/empty.hpp>
+#include <boost/preprocessor/facilities/overload.hpp>
+
 namespace solidity::smtutil
 {
 
 struct SMTLogicError: virtual util::Exception {};
 
-#define smtAssert(CONDITION, DESCRIPTION) \
-	assertThrow(CONDITION, SMTLogicError, DESCRIPTION)
+/// Assertion that throws an SMTLogicError containing the given description if it is not met.
+#if !BOOST_PP_VARIADICS_MSVC
+#define smtAssert(...) BOOST_PP_OVERLOAD(smtAssert_,__VA_ARGS__)(__VA_ARGS__)
+#else
+#define smtAssert(...) BOOST_PP_CAT(BOOST_PP_OVERLOAD(smtAssert_,__VA_ARGS__)(__VA_ARGS__),BOOST_PP_EMPTY())
+#endif
 
+#define smtAssert_1(CONDITION) \
+	smtAssert_2((CONDITION), "")
+
+#define smtAssert_2(CONDITION, DESCRIPTION) \
+	assertThrowWithDefaultDescription( \
+		(CONDITION), \
+		::solidity::smtutil::SMTLogicError, \
+		(DESCRIPTION), \
+		"SMT assertion failed" \
+	)
+
+
+// Error to indicate that some problem occurred during an interaction with external solver.
+// This could be a problem with calling the solver or unexpected situation during the processing of solver's response.
+struct SMTSolverInteractionError: virtual util::Exception {};
+
+#define smtSolverInteractionRequire(CONDITION, DESCRIPTION) \
+	assertThrowWithDefaultDescription( \
+		(CONDITION), \
+		::solidity::smtutil::SMTSolverInteractionError, \
+		(DESCRIPTION), \
+		"Encountered problem during interaction with a solver" \
+	)
 }

@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 library l1 {
 
 	uint private constant TON = 1000;
@@ -18,9 +16,9 @@ contract C {
 		assert(z == x + 1);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (136-155): Assertion violation happens here
-// Warning 2661: (229-234): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 8364: (300-302): Assertion checker does not yet implement type type(library l1)
-// Warning 2661: (229-234): Overflow (resulting value larger than 2**256 - 1) happens here
-// Warning 2661: (327-332): Overflow (resulting value larger than 2**256 - 1) happens here
+// Warning 6328: (103-122): CHC: Assertion violation happens here.
+// Warning 4984: (196-201): CHC: Overflow (resulting value larger than 2**256 - 1) happens here.
+// Info 1391: CHC: 4 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

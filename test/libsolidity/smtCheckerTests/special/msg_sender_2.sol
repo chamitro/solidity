@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f() public view {
@@ -9,5 +7,7 @@ contract C
 		assert(a == b);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 5084: (98-108): Type conversion is not yet fully supported and might yield false positives.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

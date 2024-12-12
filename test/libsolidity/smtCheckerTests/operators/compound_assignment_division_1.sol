@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract C {
 	function f(uint x) public pure {
 		require(x == 2);
@@ -8,7 +7,8 @@ contract C {
 		assert(y == 0);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 1218: (129-143): Error trying to invoke SMT solver.
-// Warning 1218: (147-161): Error trying to invoke SMT solver.
-// Warning 4661: (147-161): Assertion violation happens here
+// Warning 6328: (115-129): CHC: Assertion violation happens here.
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

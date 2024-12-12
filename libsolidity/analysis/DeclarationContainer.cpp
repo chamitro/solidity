@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Christian <c@ethdev.com>
  * @date 2014
@@ -23,10 +24,11 @@
 #include <libsolidity/analysis/DeclarationContainer.h>
 
 #include <libsolidity/ast/AST.h>
-#include <libsolidity/ast/Types.h>
 #include <libsolutil/StringUtils.h>
 
-using namespace std;
+#include <range/v3/view/filter.hpp>
+#include <range/v3/range/conversion.hpp>
+
 using namespace solidity;
 using namespace solidity::frontend;
 
@@ -38,7 +40,7 @@ Declaration const* DeclarationContainer::conflictingDeclaration(
 	if (!_name)
 		_name = &_declaration.name();
 	solAssert(!_name->empty(), "");
-	vector<Declaration const*> declarations;
+	std::vector<Declaration const*> declarations;
 	if (m_declarations.count(*_name))
 		declarations += m_declarations.at(*_name);
 	if (m_invisibleDeclarations.count(*_name))
@@ -99,6 +101,7 @@ bool DeclarationContainer::isInvisible(ASTString const& _name) const
 bool DeclarationContainer::registerDeclaration(
 	Declaration const& _declaration,
 	ASTString const* _name,
+	langutil::SourceLocation const* _location,
 	bool _invisible,
 	bool _update
 )
@@ -114,46 +117,78 @@ bool DeclarationContainer::registerDeclaration(
 		m_declarations.erase(*_name);
 		m_invisibleDeclarations.erase(*_name);
 	}
-	else if (conflictingDeclaration(_declaration, _name))
-		return false;
+	else
+	{
+		if (conflictingDeclaration(_declaration, _name))
+			return false;
 
-	vector<Declaration const*>& decls = _invisible ? m_invisibleDeclarations[*_name] : m_declarations[*_name];
+		if (m_enclosingContainer && _declaration.isVisibleAsUnqualifiedName())
+			m_homonymCandidates.emplace_back(*_name, _location ? _location : &_declaration.location());
+	}
+
+	std::vector<Declaration const*>& decls = _invisible ? m_invisibleDeclarations[*_name] : m_declarations[*_name];
 	if (!util::contains(decls, &_declaration))
 		decls.push_back(&_declaration);
 	return true;
 }
 
-vector<Declaration const*> DeclarationContainer::resolveName(ASTString const& _name, bool _recursive, bool _alsoInvisible) const
+bool DeclarationContainer::registerDeclaration(
+	Declaration const& _declaration,
+	bool _invisible,
+	bool _update
+)
+{
+	return registerDeclaration(_declaration, nullptr, nullptr, _invisible, _update);
+}
+
+std::vector<Declaration const*> DeclarationContainer::resolveName(
+	ASTString const& _name,
+	ResolvingSettings _settings
+) const
 {
 	solAssert(!_name.empty(), "Attempt to resolve empty name.");
-	vector<Declaration const*> result;
+	std::vector<Declaration const*> result;
+
 	if (m_declarations.count(_name))
-		result = m_declarations.at(_name);
-	if (_alsoInvisible && m_invisibleDeclarations.count(_name))
-		result += m_invisibleDeclarations.at(_name);
-	if (result.empty() && _recursive && m_enclosingContainer)
-		result = m_enclosingContainer->resolveName(_name, true, _alsoInvisible);
+	{
+		if (_settings.onlyVisibleAsUnqualifiedNames)
+			result += m_declarations.at(_name) | ranges::views::filter(&Declaration::isVisibleAsUnqualifiedName) | ranges::to_vector;
+		else
+			result += m_declarations.at(_name);
+	}
+
+	if (_settings.alsoInvisible && m_invisibleDeclarations.count(_name))
+	{
+		if (_settings.onlyVisibleAsUnqualifiedNames)
+			result += m_invisibleDeclarations.at(_name) | ranges::views::filter(&Declaration::isVisibleAsUnqualifiedName) | ranges::to_vector;
+		else
+			result += m_invisibleDeclarations.at(_name);
+	}
+
+	if (result.empty() && _settings.recursive && m_enclosingContainer)
+		result = m_enclosingContainer->resolveName(_name, _settings);
+
 	return result;
 }
 
-vector<ASTString> DeclarationContainer::similarNames(ASTString const& _name) const
+std::vector<ASTString> DeclarationContainer::similarNames(ASTString const& _name) const
 {
 
 	// because the function below has quadratic runtime - it will not magically improve once a better algorithm is discovered ;)
 	// since 80 is the suggested line length limit, we use 80^2 as length threshold
 	static size_t const MAXIMUM_LENGTH_THRESHOLD = 80 * 80;
 
-	vector<ASTString> similar;
+	std::vector<ASTString> similar;
 	size_t maximumEditDistance = _name.size() > 3 ? 2 : _name.size() / 2;
 	for (auto const& declaration: m_declarations)
 	{
-		string const& declarationName = declaration.first;
+		std::string const& declarationName = declaration.first;
 		if (util::stringWithinDistance(_name, declarationName, maximumEditDistance, MAXIMUM_LENGTH_THRESHOLD))
 			similar.push_back(declarationName);
 	}
 	for (auto const& declaration: m_invisibleDeclarations)
 	{
-		string const& declarationName = declaration.first;
+		std::string const& declarationName = declaration.first;
 		if (util::stringWithinDistance(_name, declarationName, maximumEditDistance, MAXIMUM_LENGTH_THRESHOLD))
 			similar.push_back(declarationName);
 	}
@@ -162,4 +197,20 @@ vector<ASTString> DeclarationContainer::similarNames(ASTString const& _name) con
 		similar += m_enclosingContainer->similarNames(_name);
 
 	return similar;
+}
+
+void DeclarationContainer::populateHomonyms(std::back_insert_iterator<Homonyms> _it) const
+{
+	for (DeclarationContainer const* innerContainer: m_innerContainers)
+		innerContainer->populateHomonyms(_it);
+
+	for (auto [name, location]: m_homonymCandidates)
+	{
+		ResolvingSettings settings;
+		settings.recursive = true;
+		settings.alsoInvisible = true;
+		std::vector<Declaration const*> const& declarations = m_enclosingContainer->resolveName(name, std::move(settings));
+		if (!declarations.empty())
+			_it = make_pair(location, declarations);
+	}
 }

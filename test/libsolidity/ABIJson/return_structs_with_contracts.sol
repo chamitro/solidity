@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 contract C {
     struct S { C[] x; C y; }
     function f() public returns (S memory s, C c) {
@@ -10,11 +10,9 @@ contract C {
 //   {
 //     "inputs": [],
 //     "name": "f",
-//     "outputs":
-//     [
+//     "outputs": [
 //       {
-//         "components":
-//         [
+//         "components": [
 //           {
 //             "internalType": "contract C[]",
 //             "name": "x",

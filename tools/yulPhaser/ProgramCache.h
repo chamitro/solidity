@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
@@ -21,6 +22,7 @@
 
 #include <libyul/optimiser/Metrics.h>
 
+#include <cstddef>
 #include <map>
 #include <string>
 
@@ -120,7 +122,7 @@ public:
 
 	CacheStats gatherStats() const;
 
-	std::map<std::string, CacheEntry> const& entries() const { return m_entries; };
+	std::map<std::string, CacheEntry> const& entries() const { return m_entries; }
 	Program const& program() const { return m_program; }
 	size_t currentRound() const { return m_currentRound; }
 

@@ -1,86 +1,70 @@
 {
   "absolutePath": "a",
-  "exportedSymbols":
-  {
-    "c":
-    [
+  "exportedSymbols": {
+    "c": [
       11
     ]
   },
   "id": 12,
-  "license": null,
   "nodeType": "SourceUnit",
-  "nodes":
-  [
+  "nodes": [
     {
       "abstract": false,
       "baseContracts": [],
+      "canonicalName": "c",
       "contractDependencies": [],
       "contractKind": "contract",
-      "documentation": null,
       "fullyImplemented": true,
       "id": 11,
-      "linearizedBaseContracts":
-      [
+      "linearizedBaseContracts": [
         11
       ],
       "name": "c",
+      "nameLocation": "9:1:1",
       "nodeType": "ContractDefinition",
-      "nodes":
-      [
+      "nodes": [
         {
-          "body":
-          {
+          "body": {
             "id": 9,
             "nodeType": "Block",
             "src": "33:19:1",
-            "statements":
-            [
+            "statements": [
               {
-                "assignments":
-                [
+                "assignments": [
                   4
                 ],
-                "declarations":
-                [
+                "declarations": [
                   {
                     "constant": false,
                     "id": 4,
                     "mutability": "mutable",
                     "name": "a",
+                    "nameLocation": "40:1:1",
                     "nodeType": "VariableDeclaration",
-                    "overrides": null,
                     "scope": 9,
                     "src": "35:6:1",
                     "stateVariable": false,
                     "storageLocation": "default",
-                    "typeDescriptions":
-                    {
+                    "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     },
-                    "typeName":
-                    {
+                    "typeName": {
                       "id": 3,
                       "name": "uint",
                       "nodeType": "ElementaryTypeName",
                       "src": "35:4:1",
-                      "typeDescriptions":
-                      {
+                      "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
-                    "value": null,
                     "visibility": "internal"
                   }
                 ],
                 "id": 8,
-                "initialValue":
-                {
-                  "argumentTypes": null,
-                  "commonType":
-                  {
+                "initialValue": {
+                  "commonType": {
                     "typeIdentifier": "t_rational_5_by_1",
                     "typeString": "int_const 5"
                   },
@@ -89,9 +73,7 @@
                   "isLValue": false,
                   "isPure": true,
                   "lValueRequested": false,
-                  "leftExpression":
-                  {
-                    "argumentTypes": null,
+                  "leftExpression": {
                     "hexValue": "32",
                     "id": 5,
                     "isConstant": false,
@@ -101,9 +83,7 @@
                     "lValueRequested": false,
                     "nodeType": "Literal",
                     "src": "44:1:1",
-                    "subdenomination": null,
-                    "typeDescriptions":
-                    {
+                    "typeDescriptions": {
                       "typeIdentifier": "t_rational_2_by_1",
                       "typeString": "int_const 2"
                     },
@@ -111,9 +91,7 @@
                   },
                   "nodeType": "BinaryOperation",
                   "operator": "+",
-                  "rightExpression":
-                  {
-                    "argumentTypes": null,
+                  "rightExpression": {
                     "hexValue": "33",
                     "id": 6,
                     "isConstant": false,
@@ -123,17 +101,14 @@
                     "lValueRequested": false,
                     "nodeType": "Literal",
                     "src": "48:1:1",
-                    "subdenomination": null,
-                    "typeDescriptions":
-                    {
+                    "typeDescriptions": {
                       "typeIdentifier": "t_rational_3_by_1",
                       "typeString": "int_const 3"
                     },
                     "value": "3"
                   },
                   "src": "44:5:1",
-                  "typeDescriptions":
-                  {
+                  "typeDescriptions": {
                     "typeIdentifier": "t_rational_5_by_1",
                     "typeString": "int_const 5"
                   }
@@ -143,24 +118,21 @@
               }
             ]
           },
-          "documentation": null,
           "functionSelector": "26121ff0",
           "id": 10,
           "implemented": true,
           "kind": "function",
           "modifiers": [],
           "name": "f",
+          "nameLocation": "22:1:1",
           "nodeType": "FunctionDefinition",
-          "overrides": null,
-          "parameters":
-          {
+          "parameters": {
             "id": 1,
             "nodeType": "ParameterList",
             "parameters": [],
             "src": "23:2:1"
           },
-          "returnParameters":
-          {
+          "returnParameters": {
             "id": 2,
             "nodeType": "ParameterList",
             "parameters": [],
@@ -174,7 +146,9 @@
         }
       ],
       "scope": 12,
-      "src": "0:54:1"
+      "src": "0:54:1",
+      "usedErrors": [],
+      "usedEvents": []
     }
   ],
   "src": "0:55:1"

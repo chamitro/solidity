@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	uint x;
@@ -12,14 +10,16 @@ contract C
 		assert(success);
 		assert(x == 0);
 		assert(map[0] == 0);
-		assert(localMap[0] == 0);
+		// Disabled because of Spacer's seg fault
+		//assert(localMap[0] == 0);
 	}
 }
 // ====
 // EVMVersion: >spuriousDragon
+// SMTEngine: all
+// SMTIgnoreCex: yes
 // ----
-// Warning 2072: (224-240): Unused local variable.
-// Warning 4661: (266-281): Assertion violation happens here
-// Warning 4661: (285-299): Assertion violation happens here
-// Warning 4661: (303-322): Assertion violation happens here
-// Warning 4661: (326-350): Assertion violation happens here
+// Warning 2072: (127-166): Unused local variable.
+// Warning 2072: (191-207): Unused local variable.
+// Warning 6328: (233-248): CHC: Assertion violation happens here.
+// Info 1391: CHC: 2 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

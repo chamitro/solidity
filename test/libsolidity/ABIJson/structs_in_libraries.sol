@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 library L {
     struct S { uint a; T[] sub; bytes b; }
     struct T { uint[2] x; }
@@ -9,19 +9,16 @@ library L {
 //     :L
 // [
 //   {
-//     "inputs":
-//     [
+//     "inputs": [
 //       {
-//         "components":
-//         [
+//         "components": [
 //           {
 //             "internalType": "uint256",
 //             "name": "a",
 //             "type": "uint256"
 //           },
 //           {
-//             "components":
-//             [
+//             "components": [
 //               {
 //                 "internalType": "uint256[2]",
 //                 "name": "x",

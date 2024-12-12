@@ -16,10 +16,11 @@ contract test {
         return (a[0][key], a[1][key], b[0][key], b[1][key]);
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // set(uint8,uint8,uint8,uint8,uint8): 1, 21, 22, 42, 43 -> 0, 0, 0, 0
+// gas irOptimized: 111237
+// gas legacy: 113742
+// gas legacyOptimized: 111768
 // get(uint8): 1 -> 21, 22, 42, 43
 // set(uint8,uint8,uint8,uint8,uint8): 1, 10, 30, 11, 31 -> 21, 22, 42, 43
 // get(uint8): 1 -> 10, 30, 11, 31

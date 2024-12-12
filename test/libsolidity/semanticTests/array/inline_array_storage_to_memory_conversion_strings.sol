@@ -7,6 +7,5 @@ contract C {
         return (x[1], x[2]);
     }
 }
-
 // ----
 // f() -> 0x40, 0x80, 0x3, "ray", 0x2, "mi"

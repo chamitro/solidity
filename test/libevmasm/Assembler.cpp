@@ -14,24 +14,30 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Alex Beregszaszi
  * @date 2018
  * Tests for the assembler.
  */
+#include <test/Common.h>
 
-#include <libsolutil/JSON.h>
 #include <libevmasm/Assembly.h>
+#include <libsolutil/JSON.h>
+#include <libevmasm/Disassemble.h>
+#include <libyul/Exceptions.h>
 
+#include <test/Common.h>
 #include <boost/test/unit_test.hpp>
 
+#include <algorithm>
+#include <memory>
 #include <string>
 #include <tuple>
-#include <memory>
 
-using namespace std;
 using namespace solidity::langutil;
 using namespace solidity::evmasm;
+using namespace std::string_literals;
 
 namespace solidity::frontend::test
 {
@@ -50,21 +56,34 @@ BOOST_AUTO_TEST_SUITE(Assembler)
 
 BOOST_AUTO_TEST_CASE(all_assembly_items)
 {
-	map<string, unsigned> indices = {
+	std::map<std::string, unsigned> indices = {
 		{ "root.asm", 0 },
-		{ "sub.asm", 1 }
+		{ "sub.asm", 1 },
+		{ "verbatim.asm", 2 }
 	};
-	Assembly _assembly;
-	auto root_asm = make_shared<CharStream>("lorem ipsum", "root.asm");
+	EVMVersion evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	Assembly _assembly{evmVersion, false, solidity::test::CommonOptions::get().eofVersion(), {}};
+	auto root_asm = std::make_shared<std::string>("root.asm");
 	_assembly.setSourceLocation({1, 3, root_asm});
 
-	Assembly _subAsm;
-	auto sub_asm = make_shared<CharStream>("lorem ipsum", "sub.asm");
+	Assembly _subAsm{evmVersion, false, solidity::test::CommonOptions::get().eofVersion(), {}};
+	auto sub_asm = std::make_shared<std::string>("sub.asm");
 	_subAsm.setSourceLocation({6, 8, sub_asm});
+
+	Assembly _verbatimAsm(evmVersion, true, solidity::test::CommonOptions::get().eofVersion(), "");
+	auto verbatim_asm = std::make_shared<std::string>("verbatim.asm");
+	_verbatimAsm.setSourceLocation({8, 18, verbatim_asm});
+
 	// PushImmutable
 	_subAsm.appendImmutable("someImmutable");
+	_subAsm.append(AssemblyItem(PushTag, 0));
 	_subAsm.append(Instruction::INVALID);
-	shared_ptr<Assembly> _subAsmPtr = make_shared<Assembly>(_subAsm);
+	std::shared_ptr<Assembly> _subAsmPtr = std::make_shared<Assembly>(_subAsm);
+
+	_verbatimAsm.appendVerbatim({0xff,0xff}, 0, 0);
+	_verbatimAsm.appendVerbatim({0x74, 0x65, 0x73, 0x74}, 0, 1);
+	_verbatimAsm.append(Instruction::MSTORE);
+	std::shared_ptr<Assembly> _verbatimAsmPtr = std::make_shared<Assembly>(_verbatimAsm);
 
 	// Tag
 	auto tag = _assembly.newTag();
@@ -73,7 +92,10 @@ BOOST_AUTO_TEST_CASE(all_assembly_items)
 	_assembly.append(u256(1));
 	_assembly.append(u256(2));
 	// Push
-	_assembly.append(Instruction::KECCAK256);
+	auto keccak256 = AssemblyItem(Instruction::KECCAK256);
+	_assembly.m_currentModifierDepth = 1;
+	_assembly.append(keccak256);
+	_assembly.m_currentModifierDepth = 0;
 	// PushProgramSize
 	_assembly.appendProgramSize();
 	// PushLibraryAddress
@@ -86,28 +108,37 @@ BOOST_AUTO_TEST_CASE(all_assembly_items)
 	auto sub = _assembly.appendSubroutine(_subAsmPtr);
 	// PushSub
 	_assembly.pushSubroutineOffset(static_cast<size_t>(sub.data()));
+	// PushSubSize
+	auto verbatim_sub = _assembly.appendSubroutine(_verbatimAsmPtr);
+	// PushSub
+	_assembly.pushSubroutineOffset(static_cast<size_t>(verbatim_sub.data()));
 	// PushDeployTimeAddress
 	_assembly.append(PushDeployTimeAddress);
 	// AssignImmutable.
-	// Note that since there is no reference to "someOtherImmutable", this will compile to a simple POP in the hex output.
+	// Note that since there is no reference to "someOtherImmutable", this will just compile to two POPs in the hex output.
 	_assembly.appendImmutableAssignment("someOtherImmutable");
 	_assembly.append(u256(2));
 	_assembly.appendImmutableAssignment("someImmutable");
 	// Operation
 	_assembly.append(Instruction::STOP);
-	_assembly.appendAuxiliaryDataToEnd(bytes{0x42, 0x66});
-	_assembly.appendAuxiliaryDataToEnd(bytes{0xee, 0xaa});
+	_assembly.appendToAuxiliaryData(bytes{0x42, 0x66});
+	_assembly.appendToAuxiliaryData(bytes{0xee, 0xaa});
+
+	_assembly.m_currentModifierDepth = 2;
+	_assembly.appendJump(tag);
+	_assembly.m_currentModifierDepth = 0;
 
 	checkCompilation(_assembly);
 
 	BOOST_CHECK_EQUAL(
 		_assembly.assemble().toHex(),
-		"5b6001600220606f73__$bf005014d9d0f534b8fcb268bd84c491a2$__"
-		"60005660676022604573000000000000000000000000000000000000000050"
-		"60028060015250"
-		"00fe"
+		"5b6001600220607f73__$bf005014d9d0f534b8fcb268bd84c491a2$__"
+		"60005660776024604c600760707300000000000000000000000000000000000000005050"
+		"600260010152"
+		"006000"
+		"56fe"
 		"7f0000000000000000000000000000000000000000000000000000000000000000"
-		"fe010203044266eeaa"
+		"6000feffff7465737452010203044266eeaa"
 	);
 	BOOST_CHECK_EQUAL(
 		_assembly.assemblyString(),
@@ -120,30 +151,40 @@ BOOST_AUTO_TEST_CASE(all_assembly_items)
 		"  data_a6885b3731702da62e8e4a8f584ac46a7f6822f4e2ba50fba902f67b1588d23b\n"
 		"  dataSize(sub_0)\n"
 		"  dataOffset(sub_0)\n"
+		"  dataSize(sub_1)\n"
+		"  dataOffset(sub_1)\n"
 		"  deployTimeAddress()\n"
 		"  assignImmutable(\"0xc3978657661c4d8e32e3d5f42597c009f0d3859e9f9d0d94325268f9799e2bfb\")\n"
 		"  0x02\n"
 		"  assignImmutable(\"0x26f2c0195e9d408feff3abd77d83f2971f3c9a18d1e8a9437c7835ae4211fc9f\")\n"
 		"  stop\n"
+		"  jump(tag_1)\n"
 		"stop\n"
 		"data_a6885b3731702da62e8e4a8f584ac46a7f6822f4e2ba50fba902f67b1588d23b 01020304\n"
 		"\n"
 		"sub_0: assembly {\n"
 		"        /* \"sub.asm\":6:8   */\n"
 		"      immutable(\"0x26f2c0195e9d408feff3abd77d83f2971f3c9a18d1e8a9437c7835ae4211fc9f\")\n"
+		"      tag_0\n"
 		"      invalid\n"
+		"}\n"
+		"\n"
+		"sub_1: assembly {\n"
+		"        /* \"verbatim.asm\":8:18   */\n"
+		"      verbatimbytecode_ffff\n"
+		"      verbatimbytecode_74657374\n"
+		"      mstore\n"
 		"}\n"
 		"\n"
 		"auxdata: 0x4266eeaa\n"
 	);
-	BOOST_CHECK_EQUAL(
-		util::jsonCompactPrint(_assembly.assemblyJSON(indices)),
+	std::string json{
 		"{\".auxdata\":\"4266eeaa\",\".code\":["
 		"{\"begin\":1,\"end\":3,\"name\":\"tag\",\"source\":0,\"value\":\"1\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"JUMPDEST\",\"source\":0},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"1\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"2\"},"
-		"{\"begin\":1,\"end\":3,\"name\":\"KECCAK256\",\"source\":0},"
+		"{\"begin\":1,\"end\":3,\"modifierDepth\":1,\"name\":\"KECCAK256\",\"source\":0},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSHSIZE\",\"source\":0},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSHLIB\",\"source\":0,\"value\":\"someLibrary\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH [tag]\",\"source\":0,\"value\":\"1\"},"
@@ -151,39 +192,139 @@ BOOST_AUTO_TEST_CASE(all_assembly_items)
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH data\",\"source\":0,\"value\":\"A6885B3731702DA62E8E4A8F584AC46A7F6822F4E2BA50FBA902F67B1588D23B\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH #[$]\",\"source\":0,\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH [$]\",\"source\":0,\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"},"
+		"{\"begin\":1,\"end\":3,\"name\":\"PUSH #[$]\",\"source\":0,\"value\":\"0000000000000000000000000000000000000000000000000000000000000001\"},"
+		"{\"begin\":1,\"end\":3,\"name\":\"PUSH [$]\",\"source\":0,\"value\":\"0000000000000000000000000000000000000000000000000000000000000001\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSHDEPLOYADDRESS\",\"source\":0},"
 		"{\"begin\":1,\"end\":3,\"name\":\"ASSIGNIMMUTABLE\",\"source\":0,\"value\":\"someOtherImmutable\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"2\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"ASSIGNIMMUTABLE\",\"source\":0,\"value\":\"someImmutable\"},"
-		"{\"begin\":1,\"end\":3,\"name\":\"STOP\",\"source\":0}"
+		"{\"begin\":1,\"end\":3,\"name\":\"STOP\",\"source\":0},"
+		"{\"begin\":1,\"end\":3,\"modifierDepth\":2,\"name\":\"PUSH [tag]\",\"source\":0,\"value\":\"1\"},{\"begin\":1,\"end\":3,\"modifierDepth\":2,\"name\":\"JUMP\",\"source\":0}"
 		"],\".data\":{\"0\":{\".code\":["
 		"{\"begin\":6,\"end\":8,\"name\":\"PUSHIMMUTABLE\",\"source\":1,\"value\":\"someImmutable\"},"
+		"{\"begin\":6,\"end\":8,\"name\":\"PUSH [ErrorTag]\",\"source\":1},"
 		"{\"begin\":6,\"end\":8,\"name\":\"INVALID\",\"source\":1}"
-		"]},\"A6885B3731702DA62E8E4A8F584AC46A7F6822F4E2BA50FBA902F67B1588D23B\":\"01020304\"}}"
-	);
+		"]},"
+		"\"1\":{\".code\":["
+		"{\"begin\":8,\"end\":18,\"name\":\"VERBATIM\",\"source\":2,\"value\":\"ffff\"},"
+		"{\"begin\":8,\"end\":18,\"name\":\"VERBATIM\",\"source\":2,\"value\":\"74657374\"},"
+		"{\"begin\":8,\"end\":18,\"name\":\"MSTORE\",\"source\":2}"
+		"]},\"A6885B3731702DA62E8E4A8F584AC46A7F6822F4E2BA50FBA902F67B1588D23B\":\"01020304\"},\"sourceList\":[\"root.asm\",\"sub.asm\",\"verbatim.asm\"]}"
+	};
+	Json jsonValue;
+	BOOST_CHECK(util::jsonParseStrict(json, jsonValue));
+	BOOST_CHECK_EQUAL(util::jsonCompactPrint(_assembly.assemblyJSON(indices)), util::jsonCompactPrint(jsonValue));
+}
+
+BOOST_AUTO_TEST_CASE(immutables_and_its_source_maps)
+{
+	EVMVersion evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	// Tests for 1, 2, 3 number of immutables.
+	for (int numImmutables = 1; numImmutables <= 3; ++numImmutables)
+	{
+		BOOST_TEST_MESSAGE("NumImmutables: "s + std::to_string(numImmutables));
+		// Tests for the cases 1, 2, 3 occurrences of an immutable reference.
+		for (int numActualRefs = 1; numActualRefs <= 3; ++numActualRefs)
+		{
+			BOOST_TEST_MESSAGE("NumActualRefs: "s + std::to_string(numActualRefs));
+			auto const NumExpectedMappings =
+				(
+					2 +                        // PUSH <a> PUSH <b>
+					(numActualRefs - 1) * 5 +  // DUP DUP PUSH <n> ADD MSTORE
+					3                          // PUSH <n> ADD MSTORE
+				) * numImmutables;
+
+			auto constexpr NumSubs = 1;
+			auto constexpr NumOpcodesWithoutMappings =
+				NumSubs +                  // PUSH <addr> for every sub assembly
+				1;                         // INVALID
+
+			auto assemblyName = std::make_shared<std::string>("root.asm");
+			auto subName = std::make_shared<std::string>("sub.asm");
+
+			std::map<std::string, unsigned> indices = {
+				{ *assemblyName, 0 },
+				{ *subName, 1 }
+			};
+
+			auto subAsm = std::make_shared<Assembly>(evmVersion, false, solidity::test::CommonOptions::get().eofVersion(), std::string{});
+			for (char i = 0; i < numImmutables; ++i)
+			{
+				for (int r = 0; r < numActualRefs; ++r)
+				{
+					subAsm->setSourceLocation(SourceLocation{10*i, 10*i + 6 + r, subName});
+					subAsm->appendImmutable(std::string(1, char('a' + i))); // "a", "b", ...
+				}
+			}
+
+			Assembly assembly{evmVersion, true, solidity::test::CommonOptions::get().eofVersion(), {}};
+			for (char i = 1; i <= numImmutables; ++i)
+			{
+				assembly.setSourceLocation({10*i, 10*i + 3+i, assemblyName});
+				assembly.append(u256(0x71));              // immutble value
+				assembly.append(u256(0));                 // target... modules?
+				assembly.appendImmutableAssignment(std::string(1, char('a' + i - 1)));
+			}
+
+			assembly.appendSubroutine(subAsm);
+
+			checkCompilation(assembly);
+
+			BOOST_REQUIRE(assembly.codeSections().size() == 1);
+			std::string const sourceMappings = AssemblyItem::computeSourceMapping(assembly.codeSections().at(0).items, indices);
+			auto const numberOfMappings = std::count(sourceMappings.begin(), sourceMappings.end(), ';');
+
+			LinkerObject const& obj = assembly.assemble();
+			std::string const disassembly = disassemble(obj.bytecode, evmVersion, "\n");
+			auto const numberOfOpcodes = std::count(disassembly.begin(), disassembly.end(), '\n');
+
+			#if 0 // {{{ debug prints
+			{
+				LinkerObject const& subObj = assembly.sub(0).assemble();
+				std::string const subDisassembly = disassemble(subObj.bytecode, "\n");
+				std::cout << '\n';
+				std::cout << "### immutables: " << numImmutables << ", refs: " << numActualRefs << '\n';
+				std::cout << " - srcmap: \"" << sourceMappings << "\"\n";
+				std::cout << " - src mappings: " << numberOfMappings << '\n';
+				std::cout << " - opcodes: " << numberOfOpcodes << '\n';
+				std::cout << " - subs: " << assembly.numSubs() << '\n';
+				std::cout << " - sub opcodes " << std::count(subDisassembly.begin(), subDisassembly.end(), '\n') << '\n';
+				std::cout << " - sub srcmaps " << AssemblyItem::computeSourceMapping(subAsm->items(), indices) << '\n';
+				std::cout << " - main bytecode:\n\t" << disassemble(obj.bytecode, "\n\t");
+				std::cout << "\r - sub bytecode:\n\t" << disassemble(subObj.bytecode, "\n\t");
+			}
+			#endif // }}}
+
+			BOOST_REQUIRE_EQUAL(NumExpectedMappings, numberOfMappings);
+			BOOST_REQUIRE_EQUAL(NumExpectedMappings, numberOfOpcodes - NumOpcodesWithoutMappings);
+		}
+	}
 }
 
 BOOST_AUTO_TEST_CASE(immutable)
 {
-	map<string, unsigned> indices = {
+	std::map<std::string, unsigned> indices = {
 		{ "root.asm", 0 },
 		{ "sub.asm", 1 }
 	};
-	Assembly _assembly;
-	auto root_asm = make_shared<CharStream>("lorem ipsum", "root.asm");
+	EVMVersion evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	Assembly _assembly{evmVersion, true, solidity::test::CommonOptions::get().eofVersion(), {}};
+	auto root_asm = std::make_shared<std::string>("root.asm");
 	_assembly.setSourceLocation({1, 3, root_asm});
 
-	Assembly _subAsm;
-	auto sub_asm = make_shared<CharStream>("lorem ipsum", "sub.asm");
+	Assembly _subAsm{evmVersion, false, solidity::test::CommonOptions::get().eofVersion(), {}};
+	auto sub_asm = std::make_shared<std::string>("sub.asm");
 	_subAsm.setSourceLocation({6, 8, sub_asm});
 	_subAsm.appendImmutable("someImmutable");
 	_subAsm.appendImmutable("someOtherImmutable");
 	_subAsm.appendImmutable("someImmutable");
-	shared_ptr<Assembly> _subAsmPtr = make_shared<Assembly>(_subAsm);
+	std::shared_ptr<Assembly> _subAsmPtr = std::make_shared<Assembly>(_subAsm);
 
 	_assembly.append(u256(42));
+	_assembly.append(u256(0));
 	_assembly.appendImmutableAssignment("someImmutable");
 	_assembly.append(u256(23));
+	_assembly.append(u256(0));
 	_assembly.appendImmutableAssignment("someOtherImmutable");
 
 	auto sub = _assembly.appendSubroutine(_subAsmPtr);
@@ -191,26 +332,31 @@ BOOST_AUTO_TEST_CASE(immutable)
 
 	checkCompilation(_assembly);
 
+	std::string genericPush0 = evmVersion.hasPush0() ? "5f" : "6000";
+	// PUSH1 0x1b v/s PUSH1 0x19
+	std::string dataOffset = evmVersion.hasPush0() ? "6019" : "601b" ;
+
 	BOOST_CHECK_EQUAL(
 		_assembly.assemble().toHex(),
 		// root.asm
 		// assign "someImmutable"
-		"602a" // PUSH1 42 - value for someImmutable
-		"80" // DUP1
+		"602a" + // PUSH1 42 - value for someImmutable
+		genericPush0 + // PUSH1 0 - offset of code into which to insert the immutable
+		"8181" // DUP2 DUP2
 		"6001" // PUSH1 1 - offset of first someImmutable in sub_0
+		"01" // ADD - add offset of immutable to offset of code
 		"52" // MSTORE
-		"80" // DUP1
 		"6043" // PUSH1 67 - offset of second someImmutable in sub_0
+		"01" // ADD - add offset of immutable to offset of code
 		"52" // MSTORE
-		"50" // POP
 		// assign "someOtherImmutable"
-		"6017" // PUSH1 23 - value for someOtherImmutable
-		"80" // DUP1
+		"6017" + // PUSH1 23 - value for someOtherImmutable
+		genericPush0 + // PUSH1 0 - offset of code into which to insert the immutable
 		"6022" // PUSH1 34 - offset of someOtherImmutable in sub_0
+		"01" // ADD - add offset of immutable to offset of code
 		"52" // MSTORE
-		"50" // POP
-		"6063" // PUSH1 0x63 - dataSize(sub_0)
-		"6017" // PUSH1 0x17 - dataOffset(sub_0)
+		"6063" + // PUSH1 0x63 - dataSize(sub_0)
+		dataOffset +  // PUSH1 0x23 - dataOffset(sub_0)
 		"fe" // INVALID
 		// end of root.asm
 		// sub.asm
@@ -222,8 +368,10 @@ BOOST_AUTO_TEST_CASE(immutable)
 		_assembly.assemblyString(),
 		"    /* \"root.asm\":1:3   */\n"
 		"  0x2a\n"
+		"  0x00\n"
 		"  assignImmutable(\"0x26f2c0195e9d408feff3abd77d83f2971f3c9a18d1e8a9437c7835ae4211fc9f\")\n"
 		"  0x17\n"
+		"  0x00\n"
 		"  assignImmutable(\"0xc3978657661c4d8e32e3d5f42597c009f0d3859e9f9d0d94325268f9799e2bfb\")\n"
 		"  dataSize(sub_0)\n"
 		"  dataOffset(sub_0)\n"
@@ -240,8 +388,10 @@ BOOST_AUTO_TEST_CASE(immutable)
 		util::jsonCompactPrint(_assembly.assemblyJSON(indices)),
 		"{\".code\":["
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"2A\"},"
+		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"0\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"ASSIGNIMMUTABLE\",\"source\":0,\"value\":\"someImmutable\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"17\"},"
+		"{\"begin\":1,\"end\":3,\"name\":\"PUSH\",\"source\":0,\"value\":\"0\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"ASSIGNIMMUTABLE\",\"source\":0,\"value\":\"someOtherImmutable\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH #[$]\",\"source\":0,\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"},"
 		"{\"begin\":1,\"end\":3,\"name\":\"PUSH [$]\",\"source\":0,\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"}"
@@ -249,8 +399,27 @@ BOOST_AUTO_TEST_CASE(immutable)
 		"{\"begin\":6,\"end\":8,\"name\":\"PUSHIMMUTABLE\",\"source\":1,\"value\":\"someImmutable\"},"
 		"{\"begin\":6,\"end\":8,\"name\":\"PUSHIMMUTABLE\",\"source\":1,\"value\":\"someOtherImmutable\"},"
 		"{\"begin\":6,\"end\":8,\"name\":\"PUSHIMMUTABLE\",\"source\":1,\"value\":\"someImmutable\"}"
-		"]}}}"
+		"]}},\"sourceList\":[\"root.asm\",\"sub.asm\"]}"
 	);
+}
+
+BOOST_AUTO_TEST_CASE(subobject_encode_decode)
+{
+	EVMVersion evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	Assembly assembly{evmVersion, true, solidity::test::CommonOptions::get().eofVersion(), {}};
+
+	std::shared_ptr<Assembly> subAsmPtr = std::make_shared<Assembly>(evmVersion, false, solidity::test::CommonOptions::get().eofVersion(), std::string{});
+	std::shared_ptr<Assembly> subSubAsmPtr = std::make_shared<Assembly>(evmVersion, false, solidity::test::CommonOptions::get().eofVersion(), std::string{});
+
+	assembly.appendSubroutine(subAsmPtr);
+	subAsmPtr->appendSubroutine(subSubAsmPtr);
+
+	BOOST_CHECK(assembly.encodeSubPath({0}) == 0);
+	BOOST_REQUIRE_THROW(assembly.encodeSubPath({1}), solidity::evmasm::AssemblyException);
+	BOOST_REQUIRE_THROW(assembly.decodeSubPath(1), solidity::evmasm::AssemblyException);
+
+	std::vector<size_t> subPath{0, 0};
+	BOOST_CHECK(assembly.decodeSubPath(assembly.encodeSubPath(subPath)) == subPath);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

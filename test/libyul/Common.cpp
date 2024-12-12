@@ -23,129 +23,108 @@
 
 #include <test/Common.h>
 
-#include <liblangutil/SourceReferenceFormatter.h>
-
 #include <libyul/optimiser/Disambiguator.h>
-#include <libyul/AsmParser.h>
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmPrinter.h>
-#include <libyul/AssemblyStack.h>
+#include <libyul/YulStack.h>
+#include <libyul/AST.h>
 #include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/backends/wasm/WasmDialect.h>
 
-#include <liblangutil/Scanner.h>
+#include <liblangutil/DebugInfoSelection.h>
 #include <liblangutil/ErrorReporter.h>
+#include <liblangutil/Scanner.h>
 
 #include <boost/test/unit_test.hpp>
 
 #include <variant>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::langutil;
 
 namespace
 {
-Dialect const& defaultDialect(bool _yul)
+Dialect const& defaultDialect()
 {
-	return _yul ? yul::Dialect::yulDeprecated() : yul::EVMDialect::strictAssemblyForEVM(solidity::test::CommonOptions::get().evmVersion());
-}
-}
-
-void yul::test::printErrors(ErrorList const& _errors)
-{
-	SourceReferenceFormatter formatter(cout);
-
-	for (auto const& error: _errors)
-		formatter.printErrorInformation(*error);
-}
-
-
-pair<shared_ptr<Block>, shared_ptr<yul::AsmAnalysisInfo>> yul::test::parse(string const& _source, bool _yul)
-{
-	AssemblyStack stack(
+	return yul::EVMDialect::strictAssemblyForEVM(
 		solidity::test::CommonOptions::get().evmVersion(),
-		_yul ? AssemblyStack::Language::Yul : AssemblyStack::Language::StrictAssembly,
+		solidity::test::CommonOptions::get().eofVersion()
+	);
+}
+}
+
+std::pair<std::shared_ptr<AST const>, std::shared_ptr<yul::AsmAnalysisInfo>> yul::test::parse(std::string const& _source)
+{
+	YulStack stack(
+		solidity::test::CommonOptions::get().evmVersion(),
+		solidity::test::CommonOptions::get().eofVersion(),
+		YulStack::Language::StrictAssembly,
 		solidity::test::CommonOptions::get().optimize ?
 			solidity::frontend::OptimiserSettings::standard() :
-			solidity::frontend::OptimiserSettings::minimal()
+			solidity::frontend::OptimiserSettings::minimal(),
+		DebugInfoSelection::All()
 	);
-	if (!stack.parseAndAnalyze("", _source) || !stack.errors().empty())
+	if (!stack.parseAndAnalyze("", _source) || Error::hasErrorsWarningsOrInfos(stack.errors()))
 		BOOST_FAIL("Invalid source.");
-	return make_pair(stack.parserResult()->code, stack.parserResult()->analysisInfo);
+	return std::make_pair(stack.parserResult()->code(), stack.parserResult()->analysisInfo);
 }
 
-pair<shared_ptr<Block>, shared_ptr<yul::AsmAnalysisInfo>> yul::test::parse(
-	string const& _source,
+std::pair<std::shared_ptr<Object>, std::shared_ptr<yul::AsmAnalysisInfo>> yul::test::parse(
+	std::string const& _source,
 	Dialect const& _dialect,
 	ErrorList& _errors
 )
 {
 	ErrorReporter errorReporter(_errors);
-	shared_ptr<Scanner> scanner = make_shared<Scanner>(CharStream(_source, ""));
-	shared_ptr<Object> parserResult = yul::ObjectParser(errorReporter, _dialect).parse(scanner, false);
+	CharStream stream(_source, "");
+	std::shared_ptr<Scanner> scanner = std::make_shared<Scanner>(stream);
+	std::shared_ptr<Object> parserResult = yul::ObjectParser(errorReporter, _dialect).parse(scanner, false);
 	if (!parserResult)
 		return {};
-	if (!parserResult->code || errorReporter.hasErrors())
+	if (!parserResult->hasCode() || errorReporter.hasErrors())
 		return {};
-	shared_ptr<AsmAnalysisInfo> analysisInfo = make_shared<AsmAnalysisInfo>();
-	AsmAnalyzer analyzer(*analysisInfo, errorReporter, _dialect, {}, parserResult->dataNames());
+	std::shared_ptr<AsmAnalysisInfo> analysisInfo = std::make_shared<AsmAnalysisInfo>();
+	AsmAnalyzer analyzer(*analysisInfo, errorReporter, _dialect, {}, parserResult->summarizeStructure());
 	// TODO this should be done recursively.
-	if (!analyzer.analyze(*parserResult->code) || errorReporter.hasErrors())
+	if (!analyzer.analyze(parserResult->code()->root()) || errorReporter.hasErrors())
 		return {};
-	return {std::move(parserResult->code), std::move(analysisInfo)};
+	return {std::move(parserResult), std::move(analysisInfo)};
 }
 
-yul::Block yul::test::disambiguate(string const& _source, bool _yul)
+yul::Block yul::test::disambiguate(std::string const& _source)
 {
-	auto result = parse(_source, _yul);
-	return std::get<Block>(Disambiguator(defaultDialect(_yul), *result.second, {})(*result.first));
+	auto result = parse(_source);
+	return std::get<Block>(Disambiguator(defaultDialect(), *result.second, {})(result.first->root()));
 }
 
-string yul::test::format(string const& _source, bool _yul)
+std::string yul::test::format(std::string const& _source)
 {
-	return yul::AsmPrinter()(*parse(_source, _yul).first);
+	return AsmPrinter::format(*parse(_source).first);
 }
 
 namespace
 {
-std::map<string const, yul::Dialect const& (*)(langutil::EVMVersion)> const validDialects = {
+std::map<std::string const, yul::Dialect const& (*)(langutil::EVMVersion, std::optional<uint8_t>)> const validDialects = {
 	{
 		"evm",
-		[](langutil::EVMVersion _evmVersion) -> yul::Dialect const&
-		{ return yul::EVMDialect::strictAssemblyForEVMObjects(_evmVersion); }
-	},
-	{
-		"evmTyped",
-		[](langutil::EVMVersion _evmVersion) -> yul::Dialect const&
-		{ return yul::EVMDialectTyped::instance(_evmVersion); }
-	},
-	{
-		"yul",
-		[](langutil::EVMVersion) -> yul::Dialect const&
-		{ return yul::Dialect::yulDeprecated(); }
-	},
-	{
-		"ewasm",
-		[](langutil::EVMVersion) -> yul::Dialect const&
-		{ return yul::WasmDialect::instance(); }
+		[](langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion) -> yul::Dialect const&
+		{ return yul::EVMDialect::strictAssemblyForEVMObjects(_evmVersion, _eofVersion); }
 	}
 };
 
-vector<string> validDialectNames()
+	std::vector<std::string> validDialectNames()
 {
-	vector<string> names{size(validDialects), ""};
-	transform(begin(validDialects), end(validDialects), names.begin(), [](auto const& dialect) { return dialect.first; });
+	std::vector<std::string> names{size(validDialects), ""};
+	std::transform(begin(validDialects), end(validDialects), names.begin(), [](auto const& dialect) { return dialect.first; });
 
 	return names;
 }
 }
 
-yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVersion _evmVersion)
+yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion)
 {
 	if (!validDialects.count(_name))
-		BOOST_THROW_EXCEPTION(runtime_error{
+		BOOST_THROW_EXCEPTION(std::runtime_error{
 			"Invalid Dialect \"" +
 			_name +
 			"\". Valid dialects are " +
@@ -153,5 +132,5 @@ yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVe
 			"."
 		});
 
-	return validDialects.at(_name)(_evmVersion);
+	return validDialects.at(_name)(_evmVersion, _eofVersion);
 }

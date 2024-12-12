@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f(uint x, uint y, bool b, bool c) public pure {
@@ -28,6 +26,9 @@ contract C
 		assert(x >= 20);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (329-344): Assertion violation happens here
-// Warning 4661: (380-395): Assertion violation happens here
+// Warning 6328: (296-311): CHC: Assertion violation happens here.
+// Warning 6328: (347-362): CHC: Assertion violation happens here.
+// Info 1391: CHC: 2 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

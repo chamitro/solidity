@@ -1,7 +1,7 @@
 contract D {
     bytes32 public x;
 
-    constructor() public {
+    constructor() {
         bytes32 codeHash;
         assembly {
             let size := codesize()
@@ -36,7 +36,10 @@ contract C {
         return true;
     }
 }
-
 // ----
 // testRuntime() -> true
+// gas legacy: 76575
+// gas legacy code: 23600
 // testCreation() -> true
+// gas legacy: 76999
+// gas legacy code: 23600

@@ -14,22 +14,16 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 #include <test/TestCase.h>
 
-namespace solidity::langutil
-{
-class Scanner;
-class Error;
-using ErrorList = std::vector<std::shared_ptr<Error const>>;
-}
-
 namespace solidity::yul
 {
 struct AsmAnalysisInfo;
-struct Block;
+class AST;
 }
 
 namespace solidity::yul::test
@@ -51,10 +45,9 @@ private:
 	bool parse(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted);
 	std::string interpret();
 
-	static void printErrors(std::ostream& _stream, langutil::ErrorList const& _errors);
-
-	std::shared_ptr<Block> m_ast;
-	std::shared_ptr<AsmAnalysisInfo> m_analysisInfo;
+	std::shared_ptr<AST const> m_ast;
+	std::shared_ptr<AsmAnalysisInfo const> m_analysisInfo;
+	bool m_simulateExternalCallsToSelf = false;
 };
 
 }

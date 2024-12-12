@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 library L
 {
 	function add(uint x, uint y) internal pure returns (uint) {
@@ -16,6 +14,8 @@ contract C
 		assert(y < 1000);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 8364: (228-229): Assertion checker does not yet implement type type(library L)
-// Warning 4661: (245-261): Assertion violation happens here
+// Warning 6328: (212-228): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

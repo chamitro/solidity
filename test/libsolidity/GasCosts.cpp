@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Tests that check that the cost of certain operations stay within range.
  */
@@ -25,7 +26,6 @@
 
 #include <cmath>
 
-using namespace std;
 using namespace solidity::langutil;
 using namespace solidity::langutil;
 using namespace solidity::evmasm;
@@ -38,18 +38,18 @@ namespace solidity::frontend::test
 #define CHECK_DEPLOY_GAS(_gasNoOpt, _gasOpt, _evmVersion) \
 	do \
 	{ \
-		u256 ipfsCost = GasMeter::dataGas(util::ipfsHash(m_compiler.metadata(m_compiler.lastContractName())), true, _evmVersion); \
+		u256 metaCost = GasMeter::dataGas(m_compiler.cborMetadata(m_compiler.lastContractName()), true, _evmVersion); \
 		u256 gasOpt{_gasOpt}; \
 		u256 gasNoOpt{_gasNoOpt}; \
 		u256 gas = m_optimiserSettings == OptimiserSettings::minimal() ? gasNoOpt : gasOpt; \
 		BOOST_CHECK_MESSAGE( \
-			m_gasUsed >= ipfsCost, \
+			m_gasUsed >= metaCost, \
 			"Gas used: " + \
 			m_gasUsed.str() + \
-			" is less than the data cost for the IPFS hash: " + \
-			u256(ipfsCost).str() \
+			" is less than the data cost for the cbor metadata: " + \
+			u256(metaCost).str() \
 		); \
-		u256 gasUsed = m_gasUsed - ipfsCost; \
+		u256 gasUsed = m_gasUsed - metaCost; \
 		BOOST_CHECK_MESSAGE( \
 			gas == gasUsed, \
 			"Gas used: " + \
@@ -90,58 +90,72 @@ BOOST_AUTO_TEST_CASE(string_storage)
 			}
 		}
 	)";
-	m_compiler.overwriteReleaseFlag(true);
+	m_compiler.setMetadataFormat(CompilerStack::MetadataFormat::NoMetadata);
+	m_appendCBORMetadata = false;
 	compileAndRun(sourceCode);
 
 	auto evmVersion = solidity::test::CommonOptions::get().evmVersion();
 
 	if (evmVersion <= EVMVersion::byzantium())
-		CHECK_DEPLOY_GAS(134209, 130895, evmVersion);
+	{
+		if (CommonOptions::get().useABIEncoderV1)
+			CHECK_DEPLOY_GAS(133045, 129731, evmVersion);
+		else
+			CHECK_DEPLOY_GAS(144995, 121229, evmVersion);
+	}
 	// This is only correct on >=Constantinople.
-	else if (CommonOptions::get().useABIEncoderV2)
+	else if (!CommonOptions::get().useABIEncoderV1)
 	{
 		if (CommonOptions::get().optimize)
 		{
 			// Costs with 0 are cases which cannot be triggered in tests.
 			if (evmVersion < EVMVersion::istanbul())
-				CHECK_DEPLOY_GAS(0, 124033, evmVersion);
+				CHECK_DEPLOY_GAS(0, 109237, evmVersion);
+			else if (evmVersion < EVMVersion::shanghai())
+				CHECK_DEPLOY_GAS(0, 97693, evmVersion);
+			// Shanghai is cheaper due to `push0`
 			else
-				CHECK_DEPLOY_GAS(0, 110981, evmVersion);
+				CHECK_DEPLOY_GAS(0, 97067, evmVersion);
 		}
 		else
 		{
 			if (evmVersion < EVMVersion::istanbul())
-				CHECK_DEPLOY_GAS(147835, 131687, evmVersion);
+				CHECK_DEPLOY_GAS(139009, 123969, evmVersion);
+			else if (evmVersion < EVMVersion::shanghai())
+				CHECK_DEPLOY_GAS(123357, 110969, evmVersion);
+			// Shanghai is cheaper due to `push0`
 			else
-				CHECK_DEPLOY_GAS(131871, 117231, evmVersion);
+				CHECK_DEPLOY_GAS(121489, 110969, evmVersion);
 		}
 	}
 	else if (evmVersion < EVMVersion::istanbul())
-		CHECK_DEPLOY_GAS(126993, 119723, evmVersion);
+		CHECK_DEPLOY_GAS(125829, 118559, evmVersion);
+	else if (evmVersion < EVMVersion::shanghai())
+		CHECK_DEPLOY_GAS(114077, 96461, evmVersion);
 	else
-		CHECK_DEPLOY_GAS(114357, 107347, evmVersion);
+		CHECK_DEPLOY_GAS(114077, 95831, evmVersion);
 
 	if (evmVersion >= EVMVersion::byzantium())
 	{
 		callContractFunction("f()");
 		if (evmVersion == EVMVersion::byzantium())
-			CHECK_GAS(21545, 21526, 20);
+			CHECK_GAS(21741, 21522, 20);
 		// This is only correct on >=Constantinople.
-		else if (CommonOptions::get().useABIEncoderV2)
+		else if (!CommonOptions::get().useABIEncoderV1)
 		{
 			if (CommonOptions::get().optimize)
 			{
 				if (evmVersion < EVMVersion::istanbul())
-					CHECK_GAS(0, 21567, 20);
+					CHECK_GAS(0, 21526, 20);
 				else
-					CHECK_GAS(0, 21351, 20);
+					CHECK_GAS(0, 21318, 20);
 			}
 			else
 			{
 				if (evmVersion < EVMVersion::istanbul())
-					CHECK_GAS(21707, 21635, 20);
+					CHECK_GAS(21736, 21559, 20);
 				else
-					CHECK_GAS(21499, 21431, 20);
+					CHECK_GAS(21528, 21351, 20);
 			}
 		}
 		else if (evmVersion < EVMVersion::istanbul())
@@ -153,7 +167,7 @@ BOOST_AUTO_TEST_CASE(string_storage)
 
 BOOST_AUTO_TEST_CASE(single_callvaluecheck)
 {
-	string sourceCode = R"(
+	std::string sourceCode = R"(
 		// All functions nonpayable, we can check callvalue at the beginning
 		contract Nonpayable {
 			address a;
@@ -161,10 +175,10 @@ BOOST_AUTO_TEST_CASE(single_callvaluecheck)
 				a = b;
 			}
 			function f1(address b) public pure returns (uint c) {
-				return uint(b) + 2;
+				return uint160(b) + 2;
 			}
 			function f2(address b) public pure returns (uint) {
-				return uint(b) + 8;
+				return uint160(b) + 8;
 			}
 			function f3(address, uint c) pure public returns (uint) {
 				return c - 5;
@@ -177,10 +191,10 @@ BOOST_AUTO_TEST_CASE(single_callvaluecheck)
 				a = b;
 			}
 			function f1(address b) public pure returns (uint c) {
-				return uint(b) + 2;
+				return uint160(b) + 2;
 			}
 			function f2(address b) public pure returns (uint) {
-				return uint(b) + 8;
+				return uint160(b) + 8;
 			}
 			function f3(address, uint c) payable public returns (uint) {
 				return c - 5;
@@ -191,7 +205,11 @@ BOOST_AUTO_TEST_CASE(single_callvaluecheck)
 	size_t bytecodeSizeNonpayable = m_compiler.object("Nonpayable").bytecode.size();
 	size_t bytecodeSizePayable = m_compiler.object("Payable").bytecode.size();
 
-	BOOST_CHECK_EQUAL(bytecodeSizePayable - bytecodeSizeNonpayable, 26);
+	auto evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	if (evmVersion < EVMVersion::shanghai())
+		BOOST_CHECK_EQUAL(bytecodeSizePayable - bytecodeSizeNonpayable, 26);
+	else
+		BOOST_CHECK_EQUAL(bytecodeSizePayable - bytecodeSizeNonpayable, 24);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

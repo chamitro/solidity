@@ -14,21 +14,22 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <libyul/AsmAnalysisInfo.h>
-#include <libyul/AsmParser.h>
 #include <libyul/AsmAnalysis.h>
 #include <libyul/Dialect.h>
 #include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/AssemblyStack.h>
+#include <libyul/YulStack.h>
+#include <libyul/AST.h>
 
+#include <liblangutil/DebugInfoSelection.h>
 #include <liblangutil/Exceptions.h>
-#include <liblangutil/ErrorReporter.h>
 #include <liblangutil/EVMVersion.h>
-#include <liblangutil/SourceReferenceFormatter.h>
 
 #include <libsolutil/CommonIO.h>
 #include <libsolutil/CommonData.h>
+#include <libsolutil/StringUtils.h>
 
 #include <test/tools/ossfuzz/yulFuzzerCommon.h>
 
@@ -36,37 +37,41 @@
 #include <memory>
 #include <iostream>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::util;
 using namespace solidity::langutil;
 using namespace solidity::yul::test::yul_fuzzer;
 
+// Prototype as we can't use the FuzzerInterface.h header.
+extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
+
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
 	if (_size > 600)
 		return 0;
 
-	string input(reinterpret_cast<char const*>(_data), _size);
+	std::string input(reinterpret_cast<char const*>(_data), _size);
 
 	if (std::any_of(input.begin(), input.end(), [](char c) {
-		return ((static_cast<unsigned char>(c) > 127) || !(std::isprint(c) || (c == '\n') || (c == '\t')));
+		return ((static_cast<unsigned char>(c) > 127) || !(isPrint(c) || (c == '\n') || (c == '\t')));
 	}))
 		return 0;
 
 	YulStringRepository::reset();
 
-	AssemblyStack stack(
+	YulStack stack(
 		langutil::EVMVersion(),
-		AssemblyStack::Language::StrictAssembly,
-		solidity::frontend::OptimiserSettings::full()
+		std::nullopt,
+		YulStack::Language::StrictAssembly,
+		solidity::frontend::OptimiserSettings::full(),
+		DebugInfoSelection::All()
 	);
 	try
 	{
 		if (
 			!stack.parseAndAnalyze("source", input) ||
-			!stack.parserResult()->code ||
+			!stack.parserResult()->hasCode() ||
 			!stack.parserResult()->analysisInfo
 		)
 			return 0;
@@ -76,23 +81,32 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 		return 0;
 	}
 
-	ostringstream os1;
-	ostringstream os2;
+	std::ostringstream os1;
+	std::ostringstream os2;
+	// Disable memory tracing to avoid false positive reports
+	// such as unused write to memory e.g.,
+	// { mstore(0, 1) }
+	// that would be removed by the redundant store eliminator.
+	// TODO: Add EOF support
 	yulFuzzerUtil::TerminationReason termReason = yulFuzzerUtil::interpret(
 		os1,
-		stack.parserResult()->code,
-		EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion())
+		stack.parserResult()->code()->root(),
+		EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion(), std::nullopt),
+		/*disableMemoryTracing=*/true
 	);
-	if (termReason == yulFuzzerUtil::TerminationReason::StepLimitReached)
+	if (yulFuzzerUtil::resourceLimitsExceeded(termReason))
 		return 0;
 
 	stack.optimize();
 	termReason = yulFuzzerUtil::interpret(
 		os2,
-		stack.parserResult()->code,
-		EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion()),
-		(yul::test::yul_fuzzer::yulFuzzerUtil::maxSteps * 4)
+		stack.parserResult()->code()->root(),
+		EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion(), std::nullopt),
+		/*disableMemoryTracing=*/true
 	);
+
+	if (yulFuzzerUtil::resourceLimitsExceeded(termReason))
+		return 0;
 
 	bool isTraceEq = (os1.str() == os2.str());
 	yulAssert(isTraceEq, "Interpreted traces for optimized and unoptimized code differ.");

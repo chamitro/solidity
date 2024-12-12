@@ -7,7 +7,7 @@ List of Known Bugs
 ##################
 
 Below, you can find a JSON-formatted list of some of the known security-relevant bugs in the
-Solidity compiler. The file itself is hosted in the `Github repository
+Solidity compiler. The file itself is hosted in the `GitHub repository
 <https://github.com/ethereum/solidity/blob/develop/docs/bugs.json>`_.
 The list stretches back as far as version 0.3.0, bugs known to be present only
 in versions preceding that are not listed.
@@ -19,20 +19,24 @@ which can be used to check which bugs affect a specific version of the compiler.
 Contract source verification tools and also other tools interacting with
 contracts should consult this list according to the following criteria:
 
- - It is mildly suspicious if a contract was compiled with a nightly
-   compiler version instead of a released version. This list does not keep
-   track of unreleased or nightly versions.
- - It is also mildly suspicious if a contract was compiled with a version that was
-   not the most recent at the time the contract was created. For contracts
-   created from other contracts, you have to follow the creation chain
-   back to a transaction and use the date of that transaction as creation date.
- - It is highly suspicious if a contract was compiled with a compiler that
-   contains a known bug and the contract was created at a time where a newer
-   compiler version containing a fix was already released.
+- It is mildly suspicious if a contract was compiled with a nightly
+  compiler version instead of a released version. This list does not keep
+  track of unreleased or nightly versions.
+- It is also mildly suspicious if a contract was compiled with a version that was
+  not the most recent at the time the contract was created. For contracts
+  created from other contracts, you have to follow the creation chain
+  back to a transaction and use the date of that transaction as creation date.
+- It is highly suspicious if a contract was compiled with a compiler that
+  contains a known bug and the contract was created at a time where a newer
+  compiler version containing a fix was already released.
 
 The JSON file of known bugs below is an array of objects, one for each bug,
 with the following keys:
 
+uid
+    Unique identifier given to the bug in the form of ``SOL-<year>-<number>``.
+    It is possible that multiple entries exists with the same uid. This means
+    multiple version ranges are affected by the same bug.
 name
     Unique name given to the bug
 summary
@@ -64,7 +68,7 @@ conditions
     If no conditions are given, assume that the bug is present.
 check
     This field contains different checks that report whether the smart contract
-    contains the bug or not. The first type of check are Javascript regular
+    contains the bug or not. The first type of check are JavaScript regular
     expressions that are to be matched against the source code ("source-regex")
     if the bug is present.  If there is no match, then the bug is very likely
     not present. If there is a match, the bug might be present.  For improved

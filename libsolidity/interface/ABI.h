@@ -14,13 +14,14 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
- * Utilities to handle the Contract ABI (https://solidity.readthedocs.io/en/develop/abi-spec.html)
+ * Utilities to handle the Contract ABI (https://docs.soliditylang.org/en/develop/abi-spec.html)
  */
 
 #pragma once
 
-#include <json/json.h>
+#include <libsolutil/JSON.h>
 #include <memory>
 #include <string>
 
@@ -30,7 +31,6 @@ namespace solidity::frontend
 // Forward declarations
 class ContractDefinition;
 class Type;
-using TypePointer = Type const*;
 
 class ABI
 {
@@ -38,17 +38,17 @@ public:
 	/// Get the ABI Interface of the contract
 	/// @param _contractDef The contract definition
 	/// @return             A JSONrepresentation of the contract's ABI Interface
-	static Json::Value generate(ContractDefinition const& _contractDef);
+	static Json generate(ContractDefinition const& _contractDef);
 private:
 	/// @returns a json value suitable for a list of types in function input or output
 	/// parameters or other places. If @a _forLibrary is true, complex types are referenced
 	/// by name, otherwise they are anonymously expanded.
 	/// @a _solidityTypes is the list of original Solidity types where @a _encodingTypes is the list of
 	/// ABI types used for the actual encoding.
-	static Json::Value formatTypeList(
+	static Json formatTypeList(
 		std::vector<std::string> const& _names,
-		std::vector<TypePointer> const& _encodingTypes,
-		std::vector<TypePointer> const& _solidityTypes,
+		std::vector<Type const*> const& _encodingTypes,
+		std::vector<Type const*> const& _solidityTypes,
 		bool _forLibrary
 	);
 	/// @returns a Json object with "name", "type", "internalType" and potentially
@@ -56,7 +56,7 @@ private:
 	/// If it is possible to express the type as a single string, it is allowed to return a single string.
 	/// @a _solidityType is the original Solidity type and @a _encodingTypes is the
 	/// ABI type used for the actual encoding.
-	static Json::Value formatType(
+	static Json formatType(
 		std::string const& _name,
 		Type const& _encodingType,
 		Type const& _solidityType,

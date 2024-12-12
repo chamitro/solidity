@@ -14,29 +14,32 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <libsolidity/formal/SymbolicVariables.h>
 
+#include <libsolidity/formal/EncodingContext.h>
 #include <libsolidity/formal/SymbolicTypes.h>
-#include <libsolidity/ast/AST.h>
 
-using namespace std;
+#include <libsolutil/Algorithms.h>
+
 using namespace solidity;
+using namespace solidity::util;
 using namespace solidity::smtutil;
 using namespace solidity::frontend;
 using namespace solidity::frontend::smt;
 
 SymbolicVariable::SymbolicVariable(
-	TypePointer _type,
-	TypePointer _originalType,
-	string _uniqueName,
+	frontend::Type const* _type,
+	frontend::Type const* _originalType,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
 	m_type(_type),
 	m_originalType(_originalType),
-	m_uniqueName(move(_uniqueName)),
+	m_uniqueName(std::move(_uniqueName)),
 	m_context(_context),
-	m_ssa(make_unique<SSAVariable>())
+	m_ssa(std::make_unique<SSAVariable>())
 {
 	solAssert(m_type, "");
 	m_sort = smtSort(*m_type);
@@ -45,23 +48,23 @@ SymbolicVariable::SymbolicVariable(
 
 SymbolicVariable::SymbolicVariable(
 	SortPointer _sort,
-	string _uniqueName,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	m_sort(move(_sort)),
-	m_uniqueName(move(_uniqueName)),
+	m_sort(std::move(_sort)),
+	m_uniqueName(std::move(_uniqueName)),
 	m_context(_context),
-	m_ssa(make_unique<SSAVariable>())
+	m_ssa(std::make_unique<SSAVariable>())
 {
 	solAssert(m_sort, "");
 }
 
-smtutil::Expression SymbolicVariable::currentValue(frontend::TypePointer const&) const
+smtutil::Expression SymbolicVariable::currentValue(frontend::Type const*) const
 {
 	return valueAtIndex(m_ssa->index());
 }
 
-string SymbolicVariable::currentName() const
+std::string SymbolicVariable::currentName() const
 {
 	return uniqueSymbol(m_ssa->index());
 }
@@ -71,14 +74,14 @@ smtutil::Expression SymbolicVariable::valueAtIndex(unsigned _index) const
 	return m_context.newVariable(uniqueSymbol(_index), m_sort);
 }
 
-string SymbolicVariable::nameAtIndex(unsigned _index) const
+std::string SymbolicVariable::nameAtIndex(unsigned _index) const
 {
 	return uniqueSymbol(_index);
 }
 
-string SymbolicVariable::uniqueSymbol(unsigned _index) const
+std::string SymbolicVariable::uniqueSymbol(unsigned _index) const
 {
-	return m_uniqueName + "_" + to_string(_index);
+	return m_uniqueName + "_" + std::to_string(_index);
 }
 
 smtutil::Expression SymbolicVariable::resetIndex()
@@ -100,50 +103,50 @@ smtutil::Expression SymbolicVariable::increaseIndex()
 }
 
 SymbolicBoolVariable::SymbolicBoolVariable(
-	frontend::TypePointer _type,
-	string _uniqueName,
+	frontend::Type const* _type,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(_type, _type, move(_uniqueName), _context)
+	SymbolicVariable(_type, _type, std::move(_uniqueName), _context)
 {
 	solAssert(m_type->category() == frontend::Type::Category::Bool, "");
 }
 
 SymbolicIntVariable::SymbolicIntVariable(
-	frontend::TypePointer _type,
-	frontend::TypePointer _originalType,
-	string _uniqueName,
+	frontend::Type const* _type,
+	frontend::Type const* _originalType,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(_type, _originalType, move(_uniqueName), _context)
+	SymbolicVariable(_type, _originalType, std::move(_uniqueName), _context)
 {
-	solAssert(isNumber(m_type->category()), "");
+	solAssert(isNumber(*m_type), "");
 }
 
 SymbolicAddressVariable::SymbolicAddressVariable(
-	string _uniqueName,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicIntVariable(TypeProvider::uint(160), TypeProvider::uint(160), move(_uniqueName), _context)
+	SymbolicIntVariable(TypeProvider::uint(160), TypeProvider::uint(160), std::move(_uniqueName), _context)
 {
 }
 
 SymbolicFixedBytesVariable::SymbolicFixedBytesVariable(
-	frontend::TypePointer _originalType,
+	frontend::Type const* _originalType,
 	unsigned _numBytes,
-	string _uniqueName,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicIntVariable(TypeProvider::uint(_numBytes * 8), _originalType, move(_uniqueName), _context)
+	SymbolicIntVariable(TypeProvider::uint(_numBytes * 8), _originalType, std::move(_uniqueName), _context)
 {
 }
 
 SymbolicFunctionVariable::SymbolicFunctionVariable(
-	frontend::TypePointer _type,
-	string _uniqueName,
+	frontend::Type const* _type,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(_type, _type, move(_uniqueName), _context),
+	SymbolicVariable(_type, _type, std::move(_uniqueName), _context),
 	m_declaration(m_context.newVariable(currentName(), m_sort))
 {
 	solAssert(m_type->category() == frontend::Type::Category::Function, "");
@@ -151,16 +154,16 @@ SymbolicFunctionVariable::SymbolicFunctionVariable(
 
 SymbolicFunctionVariable::SymbolicFunctionVariable(
 	SortPointer _sort,
-	string _uniqueName,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(move(_sort), move(_uniqueName), _context),
+	SymbolicVariable(std::move(_sort), std::move(_uniqueName), _context),
 	m_declaration(m_context.newVariable(currentName(), m_sort))
 {
 	solAssert(m_sort->kind == Kind::Function, "");
 }
 
-smtutil::Expression SymbolicFunctionVariable::currentValue(frontend::TypePointer const& _targetType) const
+smtutil::Expression SymbolicFunctionVariable::currentValue(frontend::Type const* _targetType) const
 {
 	return m_abstract.currentValue(_targetType);
 }
@@ -200,7 +203,7 @@ smtutil::Expression SymbolicFunctionVariable::increaseIndex()
 	return m_abstract.currentValue();
 }
 
-smtutil::Expression SymbolicFunctionVariable::operator()(vector<smtutil::Expression> _arguments) const
+smtutil::Expression SymbolicFunctionVariable::operator()(std::vector<smtutil::Expression> const& _arguments) const
 {
 	return m_declaration(_arguments);
 }
@@ -211,49 +214,67 @@ void SymbolicFunctionVariable::resetDeclaration()
 }
 
 SymbolicEnumVariable::SymbolicEnumVariable(
-	frontend::TypePointer _type,
-	string _uniqueName,
+	frontend::Type const* _type,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(_type, _type, move(_uniqueName), _context)
+	SymbolicVariable(_type, _type, std::move(_uniqueName), _context)
 {
-	solAssert(isEnum(m_type->category()), "");
+	solAssert(isEnum(*m_type), "");
 }
 
 SymbolicTupleVariable::SymbolicTupleVariable(
-	frontend::TypePointer _type,
-	string _uniqueName,
+	frontend::Type const* _type,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(_type, _type, move(_uniqueName), _context)
+	SymbolicVariable(_type, _type, std::move(_uniqueName), _context)
 {
-	solAssert(isTuple(m_type->category()), "");
+	solAssert(isTuple(*m_type), "");
 }
 
 SymbolicTupleVariable::SymbolicTupleVariable(
 	SortPointer _sort,
-	string _uniqueName,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(move(_sort), move(_uniqueName), _context)
+	SymbolicVariable(std::move(_sort), std::move(_uniqueName), _context)
 {
 	solAssert(m_sort->kind == Kind::Tuple, "");
 }
 
-vector<SortPointer> const& SymbolicTupleVariable::components()
+smtutil::Expression SymbolicTupleVariable::currentValue(frontend::Type const* _targetType) const
 {
-	auto tupleSort = dynamic_pointer_cast<TupleSort>(m_sort);
+	if (!_targetType || sort() == smtSort(*_targetType))
+		return SymbolicVariable::currentValue();
+
+	auto thisTuple = std::dynamic_pointer_cast<TupleSort>(sort());
+	auto otherTuple = std::dynamic_pointer_cast<TupleSort>(smtSort(*_targetType));
+	solAssert(thisTuple && otherTuple, "");
+	solAssert(thisTuple->components.size() == otherTuple->components.size(), "");
+	std::vector<smtutil::Expression> args;
+	for (size_t i = 0; i < thisTuple->components.size(); ++i)
+		args.emplace_back(component(i, type(), _targetType));
+	return smtutil::Expression::tuple_constructor(
+		smtutil::Expression(std::make_shared<smtutil::SortSort>(smtSort(*_targetType)), ""),
+		args
+	);
+}
+
+std::vector<SortPointer> const& SymbolicTupleVariable::components() const
+{
+	auto tupleSort = std::dynamic_pointer_cast<TupleSort>(m_sort);
 	solAssert(tupleSort, "");
 	return tupleSort->components;
 }
 
 smtutil::Expression SymbolicTupleVariable::component(
 	size_t _index,
-	TypePointer _fromType,
-	TypePointer _toType
-)
+	frontend::Type const* _fromType,
+	frontend::Type const* _toType
+) const
 {
-	optional<smtutil::Expression> conversion = symbolicTypeConversion(_fromType, _toType);
+	std::optional<smtutil::Expression> conversion = symbolicTypeConversion(_fromType, _toType);
 	if (conversion)
 		return *conversion;
 
@@ -261,27 +282,27 @@ smtutil::Expression SymbolicTupleVariable::component(
 }
 
 SymbolicArrayVariable::SymbolicArrayVariable(
-	frontend::TypePointer _type,
-	frontend::TypePointer _originalType,
-	string _uniqueName,
+	frontend::Type const* _type,
+	frontend::Type const* _originalType,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(_type, _originalType, move(_uniqueName), _context),
+	SymbolicVariable(_type, _originalType, std::move(_uniqueName), _context),
 	m_pair(
 		smtSort(*_type),
 		m_uniqueName + "_length_pair",
 		m_context
 	)
 {
-	solAssert(isArray(m_type->category()) || isMapping(m_type->category()), "");
+	solAssert(isArray(*m_type) || isMapping(*m_type), "");
 }
 
 SymbolicArrayVariable::SymbolicArrayVariable(
 	SortPointer _sort,
-	string _uniqueName,
+	std::string _uniqueName,
 	EncodingContext& _context
 ):
-	SymbolicVariable(move(_sort), move(_uniqueName), _context),
+	SymbolicVariable(std::move(_sort), std::move(_uniqueName), _context),
 	m_pair(
 		std::make_shared<TupleSort>(
 			"array_length_pair",
@@ -295,9 +316,9 @@ SymbolicArrayVariable::SymbolicArrayVariable(
 	solAssert(m_sort->kind == Kind::Array, "");
 }
 
-smtutil::Expression SymbolicArrayVariable::currentValue(frontend::TypePointer const& _targetType) const
+smtutil::Expression SymbolicArrayVariable::currentValue(frontend::Type const* _targetType) const
 {
-	optional<smtutil::Expression> conversion = symbolicTypeConversion(m_originalType, _targetType);
+	std::optional<smtutil::Expression> conversion = symbolicTypeConversion(m_originalType, _targetType);
 	if (conversion)
 		return *conversion;
 
@@ -309,12 +330,71 @@ smtutil::Expression SymbolicArrayVariable::valueAtIndex(unsigned _index) const
 	return m_pair.valueAtIndex(_index);
 }
 
-smtutil::Expression SymbolicArrayVariable::elements()
+smtutil::Expression SymbolicArrayVariable::elements() const
 {
 	return m_pair.component(0);
 }
 
-smtutil::Expression SymbolicArrayVariable::length()
+smtutil::Expression SymbolicArrayVariable::length() const
 {
 	return m_pair.component(1);
+}
+
+SymbolicStructVariable::SymbolicStructVariable(
+	frontend::Type const* _type,
+	std::string _uniqueName,
+	EncodingContext& _context
+):
+	SymbolicVariable(_type, _type, std::move(_uniqueName), _context)
+{
+	solAssert(isNonRecursiveStruct(*m_type), "");
+	auto const* structType = dynamic_cast<StructType const*>(_type);
+	solAssert(structType, "");
+	auto const& members = structType->structDefinition().members();
+	for (unsigned i = 0; i < members.size(); ++i)
+	{
+		solAssert(members.at(i), "");
+		m_memberIndices.emplace(members.at(i)->name(), i);
+	}
+}
+
+smtutil::Expression SymbolicStructVariable::member(std::string const& _member) const
+{
+	return smtutil::Expression::tuple_get(currentValue(), m_memberIndices.at(_member));
+}
+
+smtutil::Expression SymbolicStructVariable::assignMember(std::string const& _member, smtutil::Expression const& _memberValue)
+{
+	auto const* structType = dynamic_cast<StructType const*>(m_type);
+	solAssert(structType, "");
+	auto const& structDef = structType->structDefinition();
+	auto const& structMembers = structDef.members();
+	auto oldMembers = applyMap(
+		structMembers,
+		[&](auto _member) { return member(_member->name()); }
+	);
+	increaseIndex();
+	for (unsigned i = 0; i < structMembers.size(); ++i)
+	{
+		auto const& memberName = structMembers.at(i)->name();
+		auto newMember = memberName == _member ? _memberValue : oldMembers.at(i);
+		m_context.addAssertion(member(memberName) == newMember);
+	}
+
+	return currentValue();
+}
+
+smtutil::Expression SymbolicStructVariable::assignAllMembers(std::vector<smtutil::Expression> const& _memberValues)
+{
+	auto structType = dynamic_cast<StructType const*>(m_type);
+	solAssert(structType, "");
+
+	auto const& structDef = structType->structDefinition();
+	auto const& structMembers = structDef.members();
+	solAssert(_memberValues.size() == structMembers.size(), "");
+	increaseIndex();
+	for (unsigned i = 0; i < _memberValues.size(); ++i)
+		m_context.addAssertion(_memberValues[i] == member(structMembers[i]->name()));
+
+	return currentValue();
 }

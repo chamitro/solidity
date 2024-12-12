@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Yul code and data object container.
  */
@@ -21,53 +22,230 @@
 #include <libyul/Object.h>
 
 #include <libyul/AsmPrinter.h>
+#include <libyul/AsmJsonConverter.h>
+#include <libyul/AST.h>
 #include <libyul/Exceptions.h>
 
-#include <libsolutil/Visitor.h>
 #include <libsolutil/CommonData.h>
+#include <libsolutil/StringUtils.h>
 
-#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string.hpp>
 
-using namespace std;
+#include <range/v3/view/transform.hpp>
+
 using namespace solidity;
-using namespace solidity::yul;
+using namespace solidity::langutil;
 using namespace solidity::util;
+using namespace solidity::yul;
 
-namespace
+std::string Data::toString(DebugInfoSelection const&, CharStreamProvider const*) const
 {
-
-string indent(std::string const& _input)
-{
-	if (_input.empty())
-		return _input;
-	return boost::replace_all_copy("    " + _input, "\n", "\n    ");
+	return "data \"" + name + "\" hex\"" + util::toHex(data) + "\"";
 }
 
-}
-
-string Data::toString(Dialect const*) const
+std::string Object::toString(
+	DebugInfoSelection const& _debugInfoSelection,
+	CharStreamProvider const* _soliditySourceProvider
+) const
 {
-	return "data \"" + name.str() + "\" hex\"" + util::toHex(data) + "\"";
-}
+	yulAssert(hasCode(), "No code");
+	yulAssert(dialect(), "No dialect");
+	yulAssert(debugData, "No debug data");
 
-string Object::toString(Dialect const* _dialect) const
-{
-	yulAssert(code, "No code");
-	string inner = "code " + (_dialect ? AsmPrinter{*_dialect} : AsmPrinter{})(*code);
+	std::string inner = "code " + AsmPrinter::format(
+		*code(),
+		debugData->sourceNames,
+		_debugInfoSelection,
+		_soliditySourceProvider
+	);
 
 	for (auto const& obj: subObjects)
-		inner += "\n" + obj->toString(_dialect);
+		inner += "\n" + obj->toString(_debugInfoSelection, _soliditySourceProvider);
 
-	return "object \"" + name.str() + "\" {\n" + indent(inner) + "\n}";
+	return
+		debugData->formatUseSrcComment() +
+		"object \"" + name + "\" {\n" +
+		indent(inner) + "\n" +
+		"}";
 }
 
-set<YulString> Object::dataNames() const
+Json Data::toJson() const
 {
-	set<YulString> names;
-	names.insert(name);
-	for (auto const& subObject: subIndexByName)
-		names.insert(subObject.first);
-	// The empty name is not valid
-	names.erase(YulString{});
-	return names;
+	Json ret;
+	ret["nodeType"] = "YulData";
+	ret["value"] = util::toHex(data);
+	return ret;
+}
+
+std::string ObjectDebugData::formatUseSrcComment() const
+{
+	if (!sourceNames)
+		return "";
+
+	auto formatIdNamePair = [](auto&& _pair) {
+		return std::to_string(_pair.first) + ":" + util::escapeAndQuoteString(*_pair.second);
+	};
+
+	std::string serializedSourceNames = joinHumanReadable(
+		ranges::views::transform(*sourceNames, formatIdNamePair)
+	);
+	return "/// @use-src " + serializedSourceNames + "\n";
+}
+
+Json Object::toJson() const
+{
+	yulAssert(hasCode(), "No code");
+	yulAssert(dialect(), "No dialect");
+
+	Json codeJson;
+	codeJson["nodeType"] = "YulCode";
+	codeJson["block"] = AsmJsonConverter(*dialect(), 0 /* sourceIndex */)(code()->root());
+
+	Json subObjectsJson = Json::array();
+	for (std::shared_ptr<ObjectNode> const& subObject: subObjects)
+		subObjectsJson.emplace_back(subObject->toJson());
+
+	Json ret;
+	ret["nodeType"] = "YulObject";
+	ret["name"] = name;
+	ret["code"] = codeJson;
+	ret["subObjects"] = subObjectsJson;
+	return ret;
+}
+
+
+std::set<std::string> Object::Structure::topLevelSubObjectNames() const
+{
+	std::set<std::string> topLevelObjectNames;
+
+	for (auto const& path: objectPaths)
+		if (!util::contains(path, '.') && path != objectName)
+			topLevelObjectNames.insert(path);
+
+	return topLevelObjectNames;
+}
+
+Object::Structure Object::summarizeStructure() const
+{
+	Structure structure;
+
+	structure.objectPaths =
+		name.empty() || util::contains(name, '.') ?
+		std::set<std::string>{} :
+		std::set<std::string>{name};
+
+	structure.objectName = name;
+
+	for (std::shared_ptr<ObjectNode> const& subObjectNode: subObjects)
+	{
+		yulAssert(!structure.contains(subObjectNode->name));
+		if (util::contains(subObjectNode->name, '.'))
+			continue;
+
+		if (auto const* subObject = dynamic_cast<Object const*>(subObjectNode.get()))
+		{
+			structure.objectPaths.insert(subObjectNode->name);
+
+			auto const subObjectStructure = subObject->summarizeStructure();
+
+			for (auto const& subSubObj: subObjectStructure.objectPaths)
+				if (subObject->name != subSubObj)
+				{
+					yulAssert(!structure.contains(subObject->name + "." + subSubObj));
+					structure.objectPaths.insert(subObject->name + "." + subSubObj);
+				}
+			for (auto const& subSubObjData: subObjectStructure.dataPaths)
+				if (subObject->name != subSubObjData)
+				{
+					yulAssert(!structure.contains(subObject->name + "." + subSubObjData));
+					structure.dataPaths.insert(subObject->name + "." + subSubObjData);
+				}
+		}
+		else
+			structure.dataPaths.insert(subObjectNode->name);
+	}
+
+	yulAssert(!structure.contains(""));
+	return structure;
+}
+
+std::vector<size_t> Object::pathToSubObject(std::string_view _qualifiedName) const
+{
+	yulAssert(_qualifiedName != name, "");
+	yulAssert(subIndexByName.count(name) == 0, "");
+
+	if (boost::algorithm::starts_with(_qualifiedName, name + "."))
+		_qualifiedName = _qualifiedName.substr(name.length() + 1);
+	yulAssert(!_qualifiedName.empty(), "");
+
+	std::vector<std::string> subObjectPathComponents;
+	boost::algorithm::split(subObjectPathComponents, _qualifiedName, boost::is_any_of("."));
+
+	std::vector<size_t> path;
+	Object const* object = this;
+	for (std::string const& currentSubObjectName: subObjectPathComponents)
+	{
+		yulAssert(!currentSubObjectName.empty(), "");
+		auto subIndexIt = object->subIndexByName.find(currentSubObjectName);
+		yulAssert(
+			subIndexIt != object->subIndexByName.end(),
+			"Assembly object <" + std::string(_qualifiedName) + "> not found or does not contain code."
+		);
+		object = dynamic_cast<Object const*>(object->subObjects[subIndexIt->second].get());
+		yulAssert(object, "Assembly object <" + std::string(_qualifiedName) + "> not found or does not contain code.");
+		yulAssert(object->subId != std::numeric_limits<size_t>::max(), "");
+		path.push_back({object->subId});
+	}
+
+	return path;
+}
+
+std::shared_ptr<AST const> Object::code() const
+{
+	return m_code;
+}
+
+bool Object::hasCode() const { return code() != nullptr; }
+
+void Object::setCode(std::shared_ptr<AST const> const& _ast, std::shared_ptr<yul::AsmAnalysisInfo> _analysisInfo)
+{
+	m_code = _ast;
+	analysisInfo = std::move(_analysisInfo);
+}
+
+void Object::collectSourceIndices(std::map<std::string, unsigned>& _indices) const
+{
+	if (debugData && debugData->sourceNames.has_value())
+		for (auto const& [sourceIndex, sourceName]: debugData->sourceNames.value())
+		{
+			solAssert(_indices.count(*sourceName) == 0 || _indices[*sourceName] == sourceIndex);
+			_indices[*sourceName] = sourceIndex;
+		}
+	for (std::shared_ptr<ObjectNode> const& subNode: subObjects)
+		if (auto subObject = dynamic_cast<Object*>(subNode.get()))
+			subObject->collectSourceIndices(_indices);
+}
+
+bool Object::hasContiguousSourceIndices() const
+{
+	std::map<std::string, unsigned> sourceIndices;
+	collectSourceIndices(sourceIndices);
+
+	unsigned maxSourceIndex = 0;
+	std::set<unsigned> indices;
+	for (auto const& [sources, sourceIndex]: sourceIndices)
+	{
+		maxSourceIndex = std::max(sourceIndex, maxSourceIndex);
+		indices.insert(sourceIndex);
+	}
+
+	solAssert(maxSourceIndex + 1 >= indices.size());
+	return indices.size() == 0 || indices.size() == maxSourceIndex + 1;
+}
+
+Dialect const* Object::dialect() const
+{
+	if (!m_code)
+		return nullptr;
+	return &m_code->dialect();
 }

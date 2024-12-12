@@ -4,7 +4,5 @@ contract C {
         x = b;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f(bool): true -> true

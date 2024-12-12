@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	struct S {
 		uint[] arr;
@@ -10,11 +8,7 @@ contract C {
 		assert(s1.arr.length == s2.arr.length);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 8115: (76-80): Assertion checker does not yet support the type of this variable.
-// Warning 8115: (83-87): Assertion checker does not yet support the type of this variable.
-// Warning 7650: (126-132): Assertion checker does not yet support this expression.
-// Warning 8364: (126-128): Assertion checker does not yet implement type struct C.S storage ref
-// Warning 7650: (143-149): Assertion checker does not yet support this expression.
-// Warning 8364: (143-145): Assertion checker does not yet implement type struct C.S storage ref
-// Warning 4661: (119-157): Assertion violation happens here
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

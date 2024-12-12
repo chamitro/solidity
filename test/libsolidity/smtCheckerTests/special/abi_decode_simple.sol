@@ -1,24 +1,17 @@
-pragma experimental SMTChecker;
 contract C {
-  function f() public pure {
-    (uint a1, bytes32 b1, C c1) = abi.decode("abc", (uint, bytes32, C));
-    (uint a2, bytes32 b2, C c2) = abi.decode("abc", (uint, bytes32, C));
-	// False positive until abi.* are implemented as uninterpreted functions.
-	assert(a1 == a2);
-	assert(a1 != a2);
-  }
-
+	function f(bytes memory data) public pure {
+		(uint a1, bytes32 b1, C c1) = abi.decode(data, (uint, bytes32, C));
+		(uint a2, bytes32 b2, C c2) = abi.decode(data, (uint, bytes32, C));
+		assert(a1 == a2);
+		assert(a1 != a2);
+	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2072: (88-98): Unused local variable.
-// Warning 2072: (100-104): Unused local variable.
-// Warning 2072: (161-171): Unused local variable.
-// Warning 2072: (173-177): Unused local variable.
-// Warning 8364: (108-111): Assertion checker does not yet implement type abi
-// Warning 8364: (142-143): Assertion checker does not yet implement type type(contract C)
-// Warning 4588: (108-145): Assertion checker does not yet implement this type of function call.
-// Warning 8364: (181-184): Assertion checker does not yet implement type abi
-// Warning 8364: (215-216): Assertion checker does not yet implement type type(contract C)
-// Warning 4588: (181-218): Assertion checker does not yet implement this type of function call.
-// Warning 4661: (296-312): Assertion violation happens here
-// Warning 4661: (315-331): Assertion violation happens here
+// Warning 2072: (70-80): Unused local variable.
+// Warning 2072: (82-86): Unused local variable.
+// Warning 2072: (140-150): Unused local variable.
+// Warning 2072: (152-156): Unused local variable.
+// Warning 6328: (220-236): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

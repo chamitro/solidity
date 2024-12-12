@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimisation stage that replaces expressions of type ``sload(x)`` by the value
  * currently stored in storage, if known.
@@ -22,13 +23,22 @@
 #include <libyul/optimiser/LoadResolver.h>
 
 #include <libyul/backends/evm/EVMDialect.h>
+#include <libyul/backends/evm/EVMMetrics.h>
 #include <libyul/optimiser/Semantics.h>
 #include <libyul/optimiser/CallGraphGenerator.h>
+#include <libyul/optimiser/OptimizerUtilities.h>
 #include <libyul/SideEffects.h>
-#include <libyul/AsmData.h>
+#include <libyul/AST.h>
+#include <libyul/Utilities.h>
 
-using namespace std;
+#include <libevmasm/GasMeter.h>
+#include <libsolutil/Keccak256.h>
+
+#include <limits>
+
 using namespace solidity;
+using namespace solidity::util;
+using namespace solidity::evmasm;
 using namespace solidity::yul;
 
 void LoadResolver::run(OptimiserStepContext& _context, Block& _ast)
@@ -37,7 +47,8 @@ void LoadResolver::run(OptimiserStepContext& _context, Block& _ast)
 	LoadResolver{
 		_context.dialect,
 		SideEffectsPropagator::sideEffects(_context.dialect, CallGraphGenerator::callGraph(_ast)),
-		!containsMSize
+		containsMSize,
+		_context.expectedExecutionsPerDeployment
 	}(_ast);
 }
 
@@ -45,37 +56,105 @@ void LoadResolver::visit(Expression& _e)
 {
 	DataFlowAnalyzer::visit(_e);
 
-	if (!dynamic_cast<EVMDialect const*>(&m_dialect))
-		return;
-
-	if (holds_alternative<FunctionCall>(_e))
+	if (
+		FunctionCall const* funCall = std::get_if<FunctionCall>(&_e);
+		funCall && std::holds_alternative<BuiltinName>(funCall->functionName)
+	)
 	{
-		FunctionCall const& funCall = std::get<FunctionCall>(_e);
-		if (auto const* builtin = dynamic_cast<EVMDialect const&>(m_dialect).builtin(funCall.functionName.name))
-			if (builtin->instruction)
-				tryResolve(_e, *builtin->instruction, funCall.arguments);
+		auto const& builtinHandle = std::get<BuiltinName>(funCall->functionName).handle;
+		if (builtinHandle == m_loadFunctionName[static_cast<unsigned>(StoreLoadLocation::Memory)])
+			tryResolve(_e, StoreLoadLocation::Memory, funCall->arguments);
+		else if (builtinHandle == m_loadFunctionName[static_cast<unsigned>(StoreLoadLocation::Storage)])
+			tryResolve(_e, StoreLoadLocation::Storage, funCall->arguments);
+		else if (!m_containsMSize && builtinHandle == m_dialect.hashFunctionHandle())
+		{
+			Identifier const* start = std::get_if<Identifier>(&funCall->arguments.at(0));
+			Identifier const* length = std::get_if<Identifier>(&funCall->arguments.at(1));
+			if (start && length)
+				if (auto const& value = keccakValue(start->name, length->name))
+					if (inScope(*value))
+					{
+						_e = Identifier{debugDataOf(_e), *value};
+						return;
+					}
+			tryEvaluateKeccak(_e, funCall->arguments);
+		}
 	}
 }
 
 void LoadResolver::tryResolve(
 	Expression& _e,
-	evmasm::Instruction _instruction,
-	vector<Expression> const& _arguments
+	StoreLoadLocation _location,
+	std::vector<Expression> const& _arguments
 )
 {
-	if (_arguments.empty() || !holds_alternative<Identifier>(_arguments.at(0)))
+	if (_arguments.empty() || !std::holds_alternative<Identifier>(_arguments.at(0)))
 		return;
 
-	YulString key = std::get<Identifier>(_arguments.at(0)).name;
-	if (
-		_instruction == evmasm::Instruction::SLOAD &&
-		m_storage.values.count(key)
-	)
-		_e = Identifier{locationOf(_e), m_storage.values[key]};
-	else if (
-		m_optimizeMLoad &&
-		_instruction == evmasm::Instruction::MLOAD &&
-		m_memory.values.count(key)
-	)
-		_e = Identifier{locationOf(_e), m_memory.values[key]};
+	YulName key = std::get<Identifier>(_arguments.at(0)).name;
+	if (_location == StoreLoadLocation::Storage)
+	{
+		if (auto value = storageValue(key))
+			if (inScope(*value))
+				_e = Identifier{debugDataOf(_e), *value};
+	}
+	else if (!m_containsMSize && _location == StoreLoadLocation::Memory)
+		if (auto value = memoryValue(key))
+			if (inScope(*value))
+				_e = Identifier{debugDataOf(_e), *value};
+}
+
+void LoadResolver::tryEvaluateKeccak(
+	Expression& _e,
+	std::vector<Expression> const& _arguments
+)
+{
+	yulAssert(_arguments.size() == 2, "");
+	Identifier const* memoryKey = std::get_if<Identifier>(&_arguments.at(0));
+	Identifier const* length = std::get_if<Identifier>(&_arguments.at(1));
+
+	if (!memoryKey || !length)
+		return;
+
+	// The costs are only correct for hashes of 32 bytes or 1 word (when rounded up).
+	GasMeter gasMeter{
+		dynamic_cast<EVMDialect const&>(m_dialect),
+		!m_expectedExecutionsPerDeployment,
+		m_expectedExecutionsPerDeployment ? *m_expectedExecutionsPerDeployment : 1
+	};
+
+	bigint costOfKeccak = gasMeter.costs(_e);
+	bigint costOfLiteral = gasMeter.costs(
+		Literal{
+			{},
+			LiteralKind::Number,
+			// a dummy 256-bit number to represent the Keccak256 hash.
+			LiteralValue{std::numeric_limits<u256>::max()}
+		}
+	);
+
+	// We skip if there are no net gas savings.
+	// Note that for default `m_runs = 200`, the values are
+	// `costOfLiteral = 7200` and `costOfKeccak = 9000` for runtime context.
+	// For creation context: `costOfLiteral = 531` and `costOfKeccak = 90`.
+	if (costOfLiteral > costOfKeccak)
+		return;
+
+	std::optional<YulName> value = memoryValue(memoryKey->name);
+	if (value && inScope(*value))
+	{
+		std::optional<u256> memoryContent = valueOfIdentifier(*value);
+		std::optional<u256> byteLength = valueOfIdentifier(length->name);
+		if (memoryContent && byteLength && *byteLength <= 32)
+		{
+			bytes contentAsBytes = toBigEndian(*memoryContent);
+			contentAsBytes.resize(static_cast<size_t>(*byteLength));
+			u256 const contentHash (keccak256(contentAsBytes));
+			_e = Literal{
+				debugDataOf(_e),
+				LiteralKind::Number,
+				LiteralValue{contentHash}
+			};
+		}
+	}
 }

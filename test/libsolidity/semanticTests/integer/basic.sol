@@ -18,7 +18,5 @@ contract C {
 		return true;
 	}
 }
-// ====
-// compileViaYul: also
 // ----
 // basic() -> true

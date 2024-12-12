@@ -1,7 +1,13 @@
-pragma experimental SMTChecker;
 contract C {
 	uint[] array;
+	constructor() {
+		q(); q();
+	}
+	function q() public {
+		array.push();
+	}
 	function f(uint x, uint p) public {
+		require(p < array.length);
 		require(x == 2);
 		array[p] = 10;
 		array[p] /= array[p] / x;
@@ -9,7 +15,8 @@ contract C {
 		assert(array[p] == 0);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 1218: (163-184): Error trying to invoke SMT solver.
-// Warning 1218: (188-209): Error trying to invoke SMT solver.
-// Warning 4661: (188-209): Assertion violation happens here
+// Warning 6328: (259-280): CHC: Assertion violation happens here.
+// Info 1391: CHC: 8 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

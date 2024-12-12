@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /** @file ConstantOptimiser.cpp
  * @author Christian <c@ethdev.com>
  * @date 2015
@@ -25,9 +26,8 @@
 
 #include <liblangutil/EVMVersion.h>
 
+#include <libsolutil/Numeric.h>
 #include <libsolutil/Assertions.h>
-#include <libsolutil/CommonData.h>
-#include <libsolutil/CommonIO.h>
 
 #include <vector>
 
@@ -70,16 +70,16 @@ protected:
 	virtual ~ConstantOptimisationMethod() = default;
 	virtual bigint gasNeeded() const = 0;
 	/// Executes the method, potentially appending to the assembly and returns a vector of
-	/// assembly items the constant should be relpaced with in one sweep.
+	/// assembly items the constant should be replaced with in one sweep.
 	/// If the vector is empty, the constants will not be deleted.
 	virtual AssemblyItems execute(Assembly& _assembly) const = 0;
 
 protected:
 	/// @returns the run gas for the given items ignoring special gas costs
-	static bigint simpleRunGas(AssemblyItems const& _items);
+	static bigint simpleRunGas(AssemblyItems const& _items, langutil::EVMVersion _evmVersion);
 	/// @returns the gas needed to store the given data literally
 	bigint dataGas(bytes const& _data) const;
-	static size_t bytesRequired(AssemblyItems const& _items);
+	static size_t bytesRequired(AssemblyItems const& _items, langutil::EVMVersion _evmVersion);
 	/// @returns the combined estimated gas usage taking @a m_params into account.
 	bigint combineGas(
 		bigint const& _runGas,
@@ -123,7 +123,7 @@ public:
 	AssemblyItems execute(Assembly& _assembly) const override;
 
 protected:
-	static AssemblyItems const& copyRoutine();
+	AssemblyItems copyRoutine(AssemblyItem* _pushData = nullptr) const;
 };
 
 /**

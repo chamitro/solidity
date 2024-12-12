@@ -14,29 +14,31 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 #include <libyul/optimiser/CircularReferencesPruner.h>
 
 #include <libyul/optimiser/CallGraphGenerator.h>
+#include <libyul/optimiser/FunctionGrouper.h>
 #include <libyul/optimiser/OptimizerUtilities.h>
-#include <libyul/AsmData.h>
+#include <libyul/AST.h>
 
 #include <libsolutil/Algorithms.h>
 
-using namespace std;
 using namespace solidity::yul;
 
 void CircularReferencesPruner::run(OptimiserStepContext& _context, Block& _ast)
 {
 	CircularReferencesPruner{_context.reservedIdentifiers}(_ast);
+	FunctionGrouper::run(_context, _ast);
 }
 
 void CircularReferencesPruner::operator()(Block& _block)
 {
-	set<YulString> functionsToKeep =
+	std::set<YulName> functionsToKeep =
 		functionsCalledFromOutermostContext(CallGraphGenerator::callGraph(_block));
 
 	for (auto&& statement: _block.statements)
-		if (holds_alternative<FunctionDefinition>(statement))
+		if (std::holds_alternative<FunctionDefinition>(statement))
 		{
 			FunctionDefinition const& funDef = std::get<FunctionDefinition>(statement);
 			if (!functionsToKeep.count(funDef.name))
@@ -46,16 +48,16 @@ void CircularReferencesPruner::operator()(Block& _block)
 	removeEmptyBlocks(_block);
 }
 
-set<YulString> CircularReferencesPruner::functionsCalledFromOutermostContext(CallGraph const& _callGraph)
+std::set<YulName> CircularReferencesPruner::functionsCalledFromOutermostContext(CallGraph const& _callGraph)
 {
-	set<YulString> verticesToTraverse = m_reservedIdentifiers;
-	verticesToTraverse.insert(YulString(""));
+	std::set<YulName> verticesToTraverse = m_reservedIdentifiers;
+	verticesToTraverse.insert(YulName(""));
 
-	return util::BreadthFirstSearch<YulString>{{verticesToTraverse.begin(), verticesToTraverse.end()}}.run(
-		[&_callGraph](YulString _function, auto&& _addChild) {
+	return util::BreadthFirstSearch<YulName>{{verticesToTraverse.begin(), verticesToTraverse.end()}}.run(
+		[&_callGraph](YulName _function, auto&& _addChild) {
 			if (_callGraph.functionCalls.count(_function))
 				for (auto const& callee: _callGraph.functionCalls.at(_function))
-					if (_callGraph.functionCalls.count(callee))
-						_addChild(callee);
+					if (std::holds_alternative<YulName>(callee) && _callGraph.functionCalls.count(std::get<YulName>(callee)))
+						_addChild(std::get<YulName>(callee));
 		}).visited;
 }

@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	modifier m(uint a, uint b) {
@@ -12,5 +10,8 @@ contract C
 		assert(x > 1);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (164-177): Assertion violation happens here
+// Warning 6328: (131-144): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

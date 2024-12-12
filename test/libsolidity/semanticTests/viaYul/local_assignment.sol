@@ -4,7 +4,5 @@ contract C {
         x = b;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f(uint256): 6 -> 6

@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that performs function inlining inside expressions.
  */
@@ -27,9 +28,9 @@
 #include <libyul/optimiser/Semantics.h>
 #include <libyul/optimiser/OptimiserStep.h>
 
-#include <libyul/AsmData.h>
+#include <libyul/AST.h>
+#include <libyul/Utilities.h>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 
@@ -49,18 +50,19 @@ void ExpressionInliner::operator()(FunctionDefinition& _fun)
 void ExpressionInliner::visit(Expression& _expression)
 {
 	ASTModifier::visit(_expression);
-	if (holds_alternative<FunctionCall>(_expression))
+	if (std::holds_alternative<FunctionCall>(_expression))
 	{
 		FunctionCall& funCall = std::get<FunctionCall>(_expression);
-		if (!m_inlinableFunctions.count(funCall.functionName.name))
+		YulString const functionName{resolveFunctionName(funCall.functionName, m_dialect)};
+		if (!m_inlinableFunctions.count(functionName))
 			return;
-		FunctionDefinition const& fun = *m_inlinableFunctions.at(funCall.functionName.name);
+		FunctionDefinition const& fun = *m_inlinableFunctions.at(functionName);
 
-		map<YulString, Expression const*> substitutions;
+		std::map<YulName, Expression const*> substitutions;
 		for (size_t i = 0; i < funCall.arguments.size(); i++)
 		{
 			Expression const& arg = funCall.arguments[i];
-			YulString paraName = fun.parameters[i].name;
+			YulName paraName = fun.parameters[i].name;
 
 			if (!SideEffectsCollector(m_dialect, arg).movable())
 				return;

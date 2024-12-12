@@ -5,7 +5,7 @@
 #
 # The documentation for solidity is hosted at:
 #
-#     https://solidity.readthedocs.org
+#     https://docs.soliditylang.org
 #
 # ------------------------------------------------------------------------------
 # This file is part of solidity.
@@ -28,11 +28,14 @@
 
 set -e
 
-if test -z "$1"; then
-    BUILD_DIR="emscripten_build"
-else
-    BUILD_DIR="$1"
+params=""
+if (( $# != 0 )); then
+    params="$(printf "%q " "${@}")"
 fi
 
-docker run -v $(pwd):/root/project -w /root/project ethereum/solidity-buildpack-deps:emsdk-1.39.15-2 \
-    ./scripts/travis-emscripten/build_emscripten.sh $BUILD_DIR
+# solbuildpackpusher/solidity-buildpack-deps:emscripten-19
+# NOTE: Without `safe.directory` git would assume it's not safe to operate on /root/project since it's owned by a different user.
+# See https://github.blog/2022-04-12-git-security-vulnerability-announced/
+docker run -v "$(pwd):/root/project" -w /root/project \
+    solbuildpackpusher/solidity-buildpack-deps@sha256:170b159c82ce70e639500551394460f01798c18a5e17b45ea91277b0cf8eae37 \
+    /bin/bash -c "git config --global --add safe.directory /root/project && ./scripts/ci/build_emscripten.sh ${params}"

@@ -4,6 +4,5 @@ contract c {
         return foo3[0];
     }
 }
-
 // ----
 // f() -> 1

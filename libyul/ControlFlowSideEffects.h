@@ -14,25 +14,66 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
-#include <set>
+#include <libevmasm/Instruction.h>
+#include <libevmasm/SemanticInformation.h>
 
 namespace solidity::yul
 {
 
 /**
- * Side effects of code related to control flow.
+ * Side effects of a user-defined or builtin function.
+ *
+ * Each of the three booleans represents a reachability condition. There is an implied
+ * fourth alternative, which is going out of gas while executing the function. Since
+ * this can always happen and depends on the supply of gas, it is not considered.
+ *
+ * If all three booleans are false, it means that the function always leads to infinite
+ * recursion.
  */
 struct ControlFlowSideEffects
 {
-	/// If true, this code terminates the control flow.
-	/// State may or may not be reverted as indicated by the ``reverts`` flag.
-	bool terminates = false;
-	/// If true, this code reverts all state changes in the transaction.
-	/// Whenever this is true, ``terminates`` has to be true as well.
-	bool reverts = false;
+	/// If true, the function contains at least one reachable branch that terminates successfully.
+	bool canTerminate = false;
+	/// If true, the function contains at least one reachable branch that reverts.
+	bool canRevert = false;
+	/// If true, the function has a regular outgoing control-flow.
+	bool canContinue = true;
+
+	bool terminatesOrReverts() const
+	{
+		return (canTerminate || canRevert) && !canContinue;
+	}
+
+	static ControlFlowSideEffects fromInstruction(evmasm::Instruction _instruction)
+	{
+		ControlFlowSideEffects controlFlowSideEffects;
+		if (evmasm::SemanticInformation::terminatesControlFlow(_instruction))
+		{
+			controlFlowSideEffects.canContinue = false;
+			if (evmasm::SemanticInformation::reverts(_instruction))
+			{
+				controlFlowSideEffects.canTerminate = false;
+				controlFlowSideEffects.canRevert = true;
+			}
+			else
+			{
+				controlFlowSideEffects.canTerminate = true;
+				controlFlowSideEffects.canRevert = false;
+			}
+		}
+
+		return controlFlowSideEffects;
+	}
+
+	/// @returns the worst-case control flow side effects.
+	static ControlFlowSideEffects worst()
+	{
+		return ControlFlowSideEffects{true, true, true};
+	}
 };
 
 }

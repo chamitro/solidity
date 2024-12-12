@@ -1,7 +1,7 @@
 contract test {
     enum ActionChoices {GoLeft, GoRight, GoStraight, Sit}
 
-    constructor() public {
+    constructor() {
         choices = ActionChoices.GoStraight;
     }
 
@@ -11,8 +11,5 @@ contract test {
 
     ActionChoices choices;
 }
-
-// ====
-// compileViaYul: also
 // ----
 // getChoice() -> 2

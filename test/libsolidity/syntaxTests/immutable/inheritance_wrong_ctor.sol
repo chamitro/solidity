@@ -3,10 +3,7 @@ contract B {
 }
 
 contract C is B {
-    constructor() public {
+    constructor() {
         x = 3;
     }
 }
-// ----
-// TypeError 7484: (95-96): Immutable variables must be initialized in the constructor of the contract they are defined in.
-// TypeError 1574: (95-96): Immutable state variable already initialized.

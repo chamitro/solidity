@@ -6,7 +6,7 @@ contract test {
     testStruct data2;
     testStruct data3;
 
-    constructor() public {
+    constructor() {
         data1.m_value = 2;
     }
 
@@ -31,6 +31,5 @@ contract test {
         ret_global1 = data1.m_value; // = 3. Changed due to the assignment to x.m_value
     }
 }
-
 // ----
 // assign() -> 2, 2, 3, 3

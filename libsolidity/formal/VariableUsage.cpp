@@ -14,21 +14,23 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <libsolidity/formal/VariableUsage.h>
 
 #include <libsolidity/formal/BMC.h>
 #include <libsolidity/formal/SMTEncoder.h>
 
+#include <range/v3/view.hpp>
+
 #include <algorithm>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::frontend;
 using namespace solidity::frontend::smt;
 
-set<VariableDeclaration const*> VariableUsage::touchedVariables(ASTNode const& _node, vector<CallableDeclaration const*> const& _outerCallstack)
+std::set<VariableDeclaration const*> VariableUsage::touchedVariables(ASTNode const& _node, std::vector<CallableDeclaration const*> const& _outerCallstack)
 {
 	m_touchedVariables.clear();
 	m_callStack.clear();
@@ -59,13 +61,11 @@ void VariableUsage::endVisit(IndexAccess const& _indexAccess)
 
 void VariableUsage::endVisit(FunctionCall const& _funCall)
 {
-	if (m_inlineFunctionCalls)
-		if (auto const& funDef = SMTEncoder::functionCallToDefinition(_funCall))
-		{
-			solAssert(funDef, "");
+	auto scopeContract = currentScopeContract();
+	if (m_inlineFunctionCalls(_funCall, scopeContract, m_currentContract))
+		if (auto funDef = SMTEncoder::functionCallToDefinition(_funCall, scopeContract, m_currentContract))
 			if (find(m_callStack.begin(), m_callStack.end(), funDef) == m_callStack.end())
 				funDef->accept(*this);
-		}
 }
 
 bool VariableUsage::visit(FunctionDefinition const& _function)
@@ -82,7 +82,7 @@ void VariableUsage::endVisit(FunctionDefinition const&)
 
 void VariableUsage::endVisit(ModifierInvocation const& _modifierInv)
 {
-	auto const& modifierDef = dynamic_cast<ModifierDefinition const*>(_modifierInv.name()->annotation().referencedDeclaration);
+	auto const& modifierDef = dynamic_cast<ModifierDefinition const*>(_modifierInv.name().annotation().referencedDeclaration);
 	if (modifierDef)
 		modifierDef->accept(*this);
 }
@@ -107,4 +107,12 @@ void VariableUsage::checkIdentifier(Identifier const& _identifier)
 		if (!varDecl->isLocalVariable() || (m_lastCall && varDecl->functionOrModifierDefinition() == m_lastCall))
 			m_touchedVariables.insert(varDecl);
 	}
+}
+
+ContractDefinition const* VariableUsage::currentScopeContract()
+{
+	for (auto&& f: m_callStack | ranges::views::reverse)
+		if (auto fun = dynamic_cast<FunctionDefinition const*>(f))
+			return fun->annotation().contract;
+	return nullptr;
 }

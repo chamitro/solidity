@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimisation stage that replaces variables by their most recently assigned expressions.
  */
@@ -49,24 +50,16 @@ public:
 	static void run(
 		Dialect const& _dialect,
 		Block& _ast,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
-	);
-	static void run(
-		Dialect const& _dialect,
-		FunctionDefinition& _function,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
+		std::set<YulName> _varsToAlwaysRematerialize = {},
+		bool _onlySelectedVariables = false
 	);
 
 protected:
 	Rematerialiser(
 		Dialect const& _dialect,
 		Block& _ast,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
-	);
-	Rematerialiser(
-		Dialect const& _dialect,
-		FunctionDefinition& _function,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
+		std::set<YulName> _varsToAlwaysRematerialize = {},
+		bool _onlySelectedVariables = false
 	);
 
 	using DataFlowAnalyzer::operator();
@@ -74,8 +67,9 @@ protected:
 	using ASTModifier::visit;
 	void visit(Expression& _e) override;
 
-	std::map<YulString, size_t> m_referenceCounts;
-	std::set<YulString> m_varsToAlwaysRematerialize;
+	std::map<YulName, size_t> m_referenceCounts;
+	std::set<YulName> m_varsToAlwaysRematerialize;
+	bool m_onlySelectedVariables = false;
 };
 
 /**
@@ -101,7 +95,7 @@ public:
 
 private:
 	LiteralRematerialiser(Dialect const& _dialect):
-		DataFlowAnalyzer(_dialect)
+		DataFlowAnalyzer(_dialect, MemoryAndStorage::Ignore)
 	{}
 };
 

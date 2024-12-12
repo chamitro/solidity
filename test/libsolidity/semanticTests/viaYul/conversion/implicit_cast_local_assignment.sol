@@ -7,7 +7,5 @@ contract C {
         y = z;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f() -> 0x78

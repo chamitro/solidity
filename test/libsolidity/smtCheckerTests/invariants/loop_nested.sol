@@ -1,8 +1,3 @@
-pragma experimental SMTChecker;
-
-// This test gets different results on Linux and OSX.
-// Re-enable when fixed (SMTSolvers: z3)
-
 contract Simple {
 	function f() public pure {
 		uint x = 10;
@@ -15,11 +10,11 @@ contract Simple {
 				++x;
 			assert(x == 10);
 		}
-		assert(y == x);
+		// Removed because of Spacer nondeterminism.
+		//assert(y == x);
 	}
 }
 // ====
-// SMTSolvers: none
+// SMTEngine: all
 // ----
-// Warning: (195-209): Error trying to invoke SMT solver.
-// Warning: (195-209): Assertion violation happens here
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

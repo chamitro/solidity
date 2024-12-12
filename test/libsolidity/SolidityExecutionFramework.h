@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Christian <c@ethdev.com>
  * @date 2014
@@ -29,10 +30,7 @@
 #include <libsolidity/interface/CompilerStack.h>
 #include <libsolidity/interface/DebugSettings.h>
 
-#include <libyul/AssemblyStack.h>
-
-#include <liblangutil/Exceptions.h>
-#include <liblangutil/SourceReferenceFormatter.h>
+#include <libyul/YulStack.h>
 
 namespace solidity::frontend::test
 {
@@ -42,8 +40,16 @@ class SolidityExecutionFramework: public solidity::test::ExecutionFramework
 
 public:
 	SolidityExecutionFramework(): m_showMetadata(solidity::test::CommonOptions::get().showMetadata) {}
-	explicit SolidityExecutionFramework(langutil::EVMVersion _evmVersion):
-		ExecutionFramework(_evmVersion), m_showMetadata(solidity::test::CommonOptions::get().showMetadata)
+	explicit SolidityExecutionFramework(
+		langutil::EVMVersion _evmVersion,
+		std::optional<uint8_t> _eofVersion,
+		std::vector<boost::filesystem::path> const& _vmPaths,
+		bool _appendCBORMetadata = true
+	):
+		ExecutionFramework(_evmVersion, _vmPaths),
+		m_eofVersion(_eofVersion),
+		m_showMetadata(solidity::test::CommonOptions::get().showMetadata),
+		m_appendCBORMetadata(_appendCBORMetadata)
 	{}
 
 	bytes const& compileAndRunWithoutCheck(
@@ -51,11 +57,12 @@ public:
 		u256 const& _value = 0,
 		std::string const& _contractName = "",
 		bytes const& _arguments = {},
-		std::map<std::string, solidity::test::Address> const& _libraryAddresses = {}
+		std::map<std::string, solidity::test::Address> const& _libraryAddresses = {},
+		std::optional<std::string> const& _sourceName = std::nullopt
 	) override
 	{
-		bytes bytecode = multiSourceCompileContract(_sourceCode, _contractName, _libraryAddresses);
-		sendMessage(bytecode + _arguments, true, _value);
+		bytes bytecode = multiSourceCompileContract(_sourceCode, _sourceName, _contractName, _libraryAddresses);
+		sendMessage(bytecode, _arguments, true, _value);
 		return m_output;
 	}
 
@@ -67,17 +74,19 @@ public:
 
 	bytes multiSourceCompileContract(
 		std::map<std::string, std::string> const& _sources,
+		std::optional<std::string> const& _mainSourceName = std::nullopt,
 		std::string const& _contractName = "",
 		std::map<std::string, solidity::test::Address> const& _libraryAddresses = {}
 	);
 
-	/// Returns @param _sourceCode prefixed with the version pragma and the ABIEncoderV2 pragma,
-	/// the latter only if it is required.
-	static std::string addPreamble(std::string const& _sourceCode);
 protected:
-	solidity::frontend::CompilerStack m_compiler;
+	using CompilerStack = solidity::frontend::CompilerStack;
+	std::optional<uint8_t> m_eofVersion;
+	CompilerStack m_compiler;
 	bool m_compileViaYul = false;
 	bool m_showMetadata = false;
+	bool m_appendCBORMetadata = true;
+	CompilerStack::MetadataHash m_metadataHash = CompilerStack::MetadataHash::IPFS;
 	RevertStrings m_revertStrings = RevertStrings::Default;
 };
 

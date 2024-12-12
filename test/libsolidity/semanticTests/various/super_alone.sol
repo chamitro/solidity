@@ -3,8 +3,5 @@ contract A {
         super;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() ->

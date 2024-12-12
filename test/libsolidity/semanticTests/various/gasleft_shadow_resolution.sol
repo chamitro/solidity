@@ -7,8 +7,5 @@ contract C {
         return gasleft();
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 0

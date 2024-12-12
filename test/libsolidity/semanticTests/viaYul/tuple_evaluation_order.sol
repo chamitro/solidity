@@ -8,7 +8,5 @@ contract C {
        return (x, y);
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f() -> 3, 1

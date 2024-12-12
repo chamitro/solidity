@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 contract test {
     enum E { A, B, C }
     mapping(E => uint8) public table;
@@ -9,8 +9,6 @@ contract test {
         return this.table(k);
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // table(uint8): 0 -> 0
 // table(uint8): 0x01 -> 0

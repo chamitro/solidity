@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <tools/yulPhaser/PairSelections.h>
 
@@ -22,17 +23,16 @@
 
 #include <cmath>
 
-using namespace std;
 using namespace solidity::phaser;
 
-vector<tuple<size_t, size_t>> RandomPairSelection::materialise(size_t _poolSize) const
+std::vector<std::tuple<size_t, size_t>> RandomPairSelection::materialise(size_t _poolSize) const
 {
 	if (_poolSize < 2)
 		return {};
 
-	auto count = static_cast<size_t>(round(_poolSize * m_selectionSize));
+	auto count = static_cast<size_t>(std::round(double(_poolSize) * m_selectionSize));
 
-	vector<tuple<size_t, size_t>> selection;
+	std::vector<std::tuple<size_t, size_t>> selection;
 	for (size_t i = 0; i < count; ++i)
 	{
 		size_t index1 = SimulationRNG::uniformInt(0, _poolSize - 1);
@@ -48,9 +48,9 @@ vector<tuple<size_t, size_t>> RandomPairSelection::materialise(size_t _poolSize)
 	return selection;
 }
 
-vector<tuple<size_t, size_t>> PairsFromRandomSubset::materialise(size_t _poolSize) const
+std::vector<std::tuple<size_t, size_t>> PairsFromRandomSubset::materialise(size_t _poolSize) const
 {
-	vector<size_t> selectedIndices = RandomSubset(m_selectionChance).materialise(_poolSize);
+	std::vector<size_t> selectedIndices = RandomSubset(m_selectionChance).materialise(_poolSize);
 
 	if (selectedIndices.size() % 2 != 0)
 	{
@@ -71,7 +71,7 @@ vector<tuple<size_t, size_t>> PairsFromRandomSubset::materialise(size_t _poolSiz
 	}
 	assert(selectedIndices.size() % 2 == 0);
 
-	vector<tuple<size_t, size_t>> selectedPairs;
+	std::vector<std::tuple<size_t, size_t>> selectedPairs;
 	for (size_t i = selectedIndices.size() / 2; i > 0; --i)
 	{
 		size_t position1 = SimulationRNG::uniformInt(0, selectedIndices.size() - 1);
@@ -88,18 +88,18 @@ vector<tuple<size_t, size_t>> PairsFromRandomSubset::materialise(size_t _poolSiz
 	return selectedPairs;
 }
 
-vector<tuple<size_t, size_t>> PairMosaicSelection::materialise(size_t _poolSize) const
+std::vector<std::tuple<size_t, size_t>> PairMosaicSelection::materialise(size_t _poolSize) const
 {
 	if (_poolSize < 2)
 		return {};
 
-	size_t count = static_cast<size_t>(round(_poolSize * m_selectionSize));
+	size_t count = static_cast<size_t>(std::round(double(_poolSize) * m_selectionSize));
 
-	vector<tuple<size_t, size_t>> selection;
+	std::vector<std::tuple<size_t, size_t>> selection;
 	for (size_t i = 0; i < count; ++i)
 	{
-		tuple<size_t, size_t> pair = m_pattern[i % m_pattern.size()];
-		selection.emplace_back(min(get<0>(pair), _poolSize - 1), min(get<1>(pair), _poolSize - 1));
+		std::tuple<size_t, size_t> pair = m_pattern[i % m_pattern.size()];
+		selection.emplace_back(std::min(std::get<0>(pair), _poolSize - 1), std::min(std::get<1>(pair), _poolSize - 1));
 	}
 
 	return selection;

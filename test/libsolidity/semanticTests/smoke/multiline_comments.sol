@@ -3,8 +3,6 @@ contract C {
         return a + b + c + d + e;
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f(uint256,uint256,uint256,uint256,uint256): 1, 1, 1, 1, 1
 // # A comment on the function parameters. #
@@ -17,4 +15,3 @@ contract C {
 // 1
 // -> 5
 // # Should return sum of all parameters. #
-

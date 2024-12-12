@@ -1,14 +1,12 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f() public pure {
 		bytes2 a = 0x1234;
 		bytes1 b = bytes1(a); // b will be 0x12
-		// False positive since truncation is not supported yet.
 		assert(b == 0x12);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 5084: (108-117): Type conversion is not yet fully supported and might yield false positives.
-// Warning 4661: (198-215): Assertion violation happens here
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

@@ -29,8 +29,6 @@ contract C {
         x = x + a;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f() -> 11
 // g() -> 11

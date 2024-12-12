@@ -5,8 +5,5 @@ contract C {
         }
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> FAILURE

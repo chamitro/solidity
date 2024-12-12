@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file SimplificationRules
  * @author Christian <chris@ethereum.org>
@@ -27,8 +28,6 @@
 #include <libevmasm/SimplificationRule.h>
 
 #include <libsolutil/CommonData.h>
-
-#include <boost/noncopyable.hpp>
 
 #include <functional>
 #include <vector>
@@ -46,9 +45,13 @@ class Pattern;
 /**
  * Container for all simplification rules.
  */
-class Rules: public boost::noncopyable
+class Rules
 {
 public:
+	/// Noncopyable.
+	Rules(Rules const&) = delete;
+	Rules& operator=(Rules const&) = delete;
+
 	using Expression = ExpressionClasses::Expression;
 
 	Rules();
@@ -108,7 +111,7 @@ public:
 	unsigned matchGroup() const { return m_matchGroup; }
 	bool matches(Expression const& _expr, ExpressionClasses const& _classes) const;
 
-	AssemblyItem toAssemblyItem(langutil::SourceLocation const& _location) const;
+	AssemblyItem toAssemblyItem(langutil::DebugData::ConstPtr _debugData) const;
 	std::vector<Pattern> arguments() const { return m_arguments; }
 
 	/// @returns the id of the matched expression if this pattern is part of a match group.
@@ -146,7 +149,7 @@ struct ExpressionTemplate
 {
 	using Expression = ExpressionClasses::Expression;
 	using Id = ExpressionClasses::Id;
-	explicit ExpressionTemplate(Pattern const& _pattern, langutil::SourceLocation const& _location);
+	explicit ExpressionTemplate(Pattern const& _pattern, langutil::DebugData::ConstPtr const& _debugData);
 	std::string toString() const;
 	bool hasId = false;
 	/// Id of the matched expression, if available.

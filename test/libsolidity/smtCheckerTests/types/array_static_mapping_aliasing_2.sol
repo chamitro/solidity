@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	mapping (uint => uint) singleMap;
@@ -22,9 +20,14 @@ contract C
 		assert(map[0] == 42);
 	}
 	function g(uint x) public {
+		require(x < 2);
 		f(severalMaps3d[x][0]);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreCex: yes
+// SMTTargets: assert
 // ----
-// Warning 4661: (781-801): Assertion violation happens here
-// Warning 4661: (781-801): Assertion violation happens here
+// Warning 6328: (748-768): CHC: Assertion violation happens here.\nCounterexample:\n\nx = 0\n\nTransaction trace:\nC.constructor()\nC.g(0)\n    C.f(map) -- counterexample incomplete; parameter name used instead of value -- internal call
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

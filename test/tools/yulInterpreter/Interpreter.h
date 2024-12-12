@@ -14,14 +14,17 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Yul interpreter.
  */
 
 #pragma once
 
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
 #include <libyul/optimiser/ASTWalker.h>
+
+#include <libevmasm/Instruction.h>
 
 #include <libsolutil/FixedHash.h>
 #include <libsolutil/CommonData.h>
@@ -32,7 +35,7 @@
 
 namespace solidity::yul
 {
-struct Dialect;
+class Dialect;
 }
 
 namespace solidity::yul::test
@@ -46,11 +49,19 @@ class ExplicitlyTerminated: public InterpreterTerminatedGeneric
 {
 };
 
+class ExplicitlyTerminatedWithReturn: public ExplicitlyTerminated
+{
+};
+
 class StepLimitReached: public InterpreterTerminatedGeneric
 {
 };
 
 class TraceLimitReached: public InterpreterTerminatedGeneric
+{
+};
+
+class ExpressionNestingLimitReached: public InterpreterTerminatedGeneric
 {
 };
 
@@ -70,30 +81,73 @@ struct InterpreterState
 	/// This is different than memory.size() because we ignore gas.
 	u256 msize;
 	std::map<util::h256, util::h256> storage;
-	u160 address = 0x11111111;
+	std::map<util::h256, util::h256> transientStorage;
+	util::h160 address = util::h160("0x0000000000000000000000000000000011111111");
 	u256 balance = 0x22222222;
 	u256 selfbalance = 0x22223333;
-	u160 origin = 0x33333333;
-	u160 caller = 0x44444444;
+	util::h160 origin = util::h160("0x0000000000000000000000000000000033333333");
+	util::h160 caller = util::h160("0x0000000000000000000000000000000044444444");
 	u256 callvalue = 0x55555555;
 	/// Deployed code
 	bytes code = util::asBytes("codecodecodecodecode");
 	u256 gasprice = 0x66666666;
-	u160 coinbase = 0x77777777;
+	util::h160 coinbase = util::h160("0x0000000000000000000000000000000077777777");
 	u256 timestamp = 0x88888888;
 	u256 blockNumber = 1024;
 	u256 difficulty = 0x9999999;
+	u256 prevrandao = (u256(1) << 64) + 1;
 	u256 gaslimit = 4000000;
 	u256 chainid = 0x01;
+	/// The minimum value of basefee: 7 wei.
+	u256 basefee = 0x07;
+	/// The minimum value of blobbasefee: 1 wei.
+	u256 blobbasefee = 0x01;
 	/// Log of changes / effects. Sholud be structured data in the future.
 	std::vector<std::string> trace;
 	/// This is actually an input parameter that more or less limits the runtime.
 	size_t maxTraceSize = 0;
 	size_t maxSteps = 0;
 	size_t numSteps = 0;
+	size_t maxExprNesting = 0;
 	ControlFlowState controlFlowState = ControlFlowState::Default;
 
-	void dumpTraceAndState(std::ostream& _out) const;
+	/// Number of the current state instance, used for recursion protection
+	size_t numInstance = 0;
+
+	// Blob commitment hash version
+	util::FixedHash<1> const blobHashVersion = util::FixedHash<1>(1);
+	// Blob commitments
+	std::array<u256, 2> const blobCommitments = {0x01, 0x02};
+
+	/// Prints execution trace and non-zero storage to @param _out.
+	/// Flag @param _disableMemoryTrace, if set, does not produce a memory dump. This
+	/// avoids false positives reports by the fuzzer when certain optimizer steps are
+	/// activated e.g., Redundant store eliminator, Equal store eliminator.
+	void dumpTraceAndState(std::ostream& _out, bool _disableMemoryTrace) const;
+	/// Prints non-zero storage to @param _out.
+	void dumpStorage(std::ostream& _out) const;
+	/// Prints non-zero transient storage to @param _out.
+	void dumpTransientStorage(std::ostream& _out) const;
+
+	bytes readMemory(u256 const& _offset, u256 const& _size)
+	{
+		yulAssert(_size <= 0xffff, "Too large read.");
+		bytes data(size_t(_size), uint8_t(0));
+		for (size_t i = 0; i < data.size(); ++i)
+			data[i] = memory[_offset + i];
+		return data;
+	}
+};
+
+/**
+ * Scope structure built and maintained during execution.
+ */
+struct Scope
+{
+	/// Used for variables and functions. Value is nullptr for variables.
+	std::map<YulName, FunctionDefinition const*> names;
+	std::map<Block const*, std::unique_ptr<Scope>> subScopes;
+	Scope* parent = nullptr;
 };
 
 /**
@@ -102,17 +156,34 @@ struct InterpreterState
 class Interpreter: public ASTWalker
 {
 public:
+	/// Executes the Yul interpreter. Flag @param _disableMemoryTracing if set ensures that
+	/// instructions that write to memory do not affect @param _state. This
+	/// avoids false positives reports by the fuzzer when certain optimizer steps are
+	/// activated e.g., Redundant store eliminator, Equal store eliminator.
+	static void run(
+		InterpreterState& _state,
+		Dialect const& _dialect,
+		Block const& _ast,
+		bool _disableExternalCalls,
+		bool _disableMemoryTracing
+	);
+
 	Interpreter(
 		InterpreterState& _state,
 		Dialect const& _dialect,
-		std::map<YulString, u256> _variables = {},
-		std::vector<std::map<YulString, FunctionDefinition const*>> _scopes = {}
+		Scope& _scope,
+		bool _disableExternalCalls,
+		bool _disableMemoryTracing,
+		std::map<YulName, u256> _variables = {}
 	):
 		m_dialect(_dialect),
 		m_state(_state),
 		m_variables(std::move(_variables)),
-		m_scopes(std::move(_scopes))
-	{}
+		m_scope(&_scope),
+		m_disableExternalCalls(_disableExternalCalls),
+		m_disableMemoryTrace(_disableMemoryTracing)
+	{
+	}
 
 	void operator()(ExpressionStatement const& _statement) override;
 	void operator()(Assignment const& _assignment) override;
@@ -126,28 +197,33 @@ public:
 	void operator()(Leave const&) override;
 	void operator()(Block const& _block) override;
 
+	bytes returnData() const { return m_state.returndata; }
 	std::vector<std::string> const& trace() const { return m_state.trace; }
 
-	u256 valueOfVariable(YulString _name) const { return m_variables.at(_name); }
+	u256 valueOfVariable(YulName _name) const { return m_variables.at(_name); }
 
-private:
+protected:
 	/// Asserts that the expression evaluates to exactly one value and returns it.
-	u256 evaluate(Expression const& _expression);
+	virtual u256 evaluate(Expression const& _expression);
 	/// Evaluates the expression and returns its value.
-	std::vector<u256> evaluateMulti(Expression const& _expression);
+	virtual std::vector<u256> evaluateMulti(Expression const& _expression);
 
-	void openScope() { m_scopes.emplace_back(); }
-	/// Unregisters variables and functions.
-	void closeScope();
+	void enterScope(Block const& _block);
+	void leaveScope();
+
+	/// Increment interpreter step count, throwing exception if step limit
+	/// is reached.
+	void incrementStep();
 
 	Dialect const& m_dialect;
 	InterpreterState& m_state;
 	/// Values of variables.
-	std::map<YulString, u256> m_variables;
-	/// Scopes of variables and functions. Used for lookup, clearing at end of blocks
-	/// and passing over the visible functions across function calls.
-	/// The pointer is nullptr if and only if the key is a variable.
-	std::vector<std::map<YulString, FunctionDefinition const*>> m_scopes;
+	std::map<YulName, u256> m_variables;
+	Scope* m_scope;
+	/// If not set, external calls (e.g. using `call()`) to the same contract
+	/// are evaluated in a new parser instance.
+	bool m_disableExternalCalls;
+	bool m_disableMemoryTrace;
 };
 
 /**
@@ -159,13 +235,17 @@ public:
 	ExpressionEvaluator(
 		InterpreterState& _state,
 		Dialect const& _dialect,
-		std::map<YulString, u256> const& _variables,
-		std::vector<std::map<YulString, FunctionDefinition const*>> const& _scopes
+		Scope& _scope,
+		std::map<YulName, u256> const& _variables,
+		bool _disableExternalCalls,
+		bool _disableMemoryTrace
 	):
 		m_state(_state),
 		m_dialect(_dialect),
 		m_variables(_variables),
-		m_scopes(_scopes)
+		m_scope(_scope),
+		m_disableExternalCalls(_disableExternalCalls),
+		m_disableMemoryTrace(_disableMemoryTrace)
 	{}
 
 	void operator()(Literal const&) override;
@@ -177,29 +257,56 @@ public:
 	/// Returns the list of values of the expression.
 	std::vector<u256> values() const { return m_values; }
 
-private:
+protected:
+	void runExternalCall(evmasm::Instruction _instruction);
+	virtual std::unique_ptr<Interpreter> makeInterpreterCopy(std::map<YulName, u256> _variables = {}) const
+	{
+		return std::make_unique<Interpreter>(
+			m_state,
+			m_dialect,
+			m_scope,
+			m_disableExternalCalls,
+			m_disableMemoryTrace,
+			std::move(_variables)
+		);
+	}
+	virtual std::unique_ptr<Interpreter> makeInterpreterNew(InterpreterState& _state, Scope& _scope) const
+	{
+		return std::make_unique<Interpreter>(
+			_state,
+			m_dialect,
+			_scope,
+			m_disableExternalCalls,
+			m_disableMemoryTrace
+		);
+	}
+
 	void setValue(u256 _value);
 
 	/// Evaluates the given expression from right to left and
 	/// stores it in m_value.
-	void evaluateArgs(std::vector<Expression> const& _expr);
+	void evaluateArgs(
+		std::vector<Expression> const& _expr,
+		std::vector<std::optional<LiteralKind>> const* _literalArguments
+	);
 
-	/// Finds the function called @a _functionName in the current scope stack and returns
-	/// the function's scope stack (with variables removed) and definition.
-	std::pair<
-		std::vector<std::map<YulString, FunctionDefinition const*>>,
-		FunctionDefinition const*
-	> findFunctionAndScope(YulString _functionName) const;
+	/// Increment evaluation count, throwing exception if the
+	/// nesting level is beyond the upper bound configured in
+	/// the interpreter state.
+	void incrementStep();
 
 	InterpreterState& m_state;
 	Dialect const& m_dialect;
 	/// Values of variables.
-	std::map<YulString, u256> const& m_variables;
-	/// Stack of scopes in the current context.
-	std::vector<std::map<YulString, FunctionDefinition const*>> const& m_scopes;
+	std::map<YulName, u256> const& m_variables;
+	Scope& m_scope;
 	/// Current value of the expression
 	std::vector<u256> m_values;
+	/// Current expression nesting level
+	unsigned m_nestingLevel = 0;
+	bool m_disableExternalCalls;
+	/// Flag to disable memory tracing
+	bool m_disableMemoryTrace;
 };
 
 }
-

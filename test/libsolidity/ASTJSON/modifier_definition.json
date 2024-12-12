@@ -1,41 +1,34 @@
 {
   "absolutePath": "a",
-  "exportedSymbols":
-  {
-    "C":
-    [
+  "exportedSymbols": {
+    "C": [
       14
     ]
   },
   "id": 15,
-  "license": null,
   "nodeType": "SourceUnit",
-  "nodes":
-  [
+  "nodes": [
     {
       "abstract": false,
       "baseContracts": [],
+      "canonicalName": "C",
       "contractDependencies": [],
       "contractKind": "contract",
-      "documentation": null,
       "fullyImplemented": true,
       "id": 14,
-      "linearizedBaseContracts":
-      [
+      "linearizedBaseContracts": [
         14
       ],
       "name": "C",
+      "nameLocation": "9:1:1",
       "nodeType": "ContractDefinition",
-      "nodes":
-      [
+      "nodes": [
         {
-          "body":
-          {
+          "body": {
             "id": 5,
             "nodeType": "Block",
             "src": "32:6:1",
-            "statements":
-            [
+            "statements": [
               {
                 "id": 4,
                 "nodeType": "PlaceholderStatement",
@@ -43,46 +36,39 @@
               }
             ]
           },
-          "documentation": null,
           "id": 6,
           "name": "M",
+          "nameLocation": "22:1:1",
           "nodeType": "ModifierDefinition",
-          "overrides": null,
-          "parameters":
-          {
+          "parameters": {
             "id": 3,
             "nodeType": "ParameterList",
-            "parameters":
-            [
+            "parameters": [
               {
                 "constant": false,
                 "id": 2,
                 "mutability": "mutable",
                 "name": "i",
+                "nameLocation": "29:1:1",
                 "nodeType": "VariableDeclaration",
-                "overrides": null,
                 "scope": 6,
                 "src": "24:6:1",
                 "stateVariable": false,
                 "storageLocation": "default",
-                "typeDescriptions":
-                {
+                "typeDescriptions": {
                   "typeIdentifier": "t_uint256",
                   "typeString": "uint256"
                 },
-                "typeName":
-                {
+                "typeName": {
                   "id": 1,
                   "name": "uint",
                   "nodeType": "ElementaryTypeName",
                   "src": "24:4:1",
-                  "typeDescriptions":
-                  {
+                  "typeDescriptions": {
                     "typeIdentifier": "t_uint256",
                     "typeString": "uint256"
                   }
                 },
-                "value": null,
                 "visibility": "internal"
               }
             ],
@@ -93,25 +79,20 @@
           "visibility": "internal"
         },
         {
-          "body":
-          {
+          "body": {
             "id": 12,
             "nodeType": "Block",
             "src": "64:2:1",
             "statements": []
           },
-          "documentation": null,
           "functionSelector": "28811f59",
           "id": 13,
           "implemented": true,
           "kind": "function",
-          "modifiers":
-          [
+          "modifiers": [
             {
-              "arguments":
-              [
+              "arguments": [
                 {
-                  "argumentTypes": null,
                   "hexValue": "31",
                   "id": 9,
                   "isConstant": false,
@@ -121,9 +102,7 @@
                   "lValueRequested": false,
                   "nodeType": "Literal",
                   "src": "54:1:1",
-                  "subdenomination": null,
-                  "typeDescriptions":
-                  {
+                  "typeDescriptions": {
                     "typeIdentifier": "t_rational_1_by_1",
                     "typeString": "int_const 1"
                   },
@@ -131,37 +110,31 @@
                 }
               ],
               "id": 10,
-              "modifierName":
-              {
-                "argumentTypes": null,
+              "kind": "modifierInvocation",
+              "modifierName": {
                 "id": 8,
                 "name": "M",
-                "nodeType": "Identifier",
-                "overloadedDeclarations": [],
+                "nameLocations": [
+                  "52:1:1"
+                ],
+                "nodeType": "IdentifierPath",
                 "referencedDeclaration": 6,
-                "src": "52:1:1",
-                "typeDescriptions":
-                {
-                  "typeIdentifier": "t_modifier$_t_uint256_$",
-                  "typeString": "modifier (uint256)"
-                }
+                "src": "52:1:1"
               },
               "nodeType": "ModifierInvocation",
               "src": "52:4:1"
             }
           ],
           "name": "F",
+          "nameLocation": "48:1:1",
           "nodeType": "FunctionDefinition",
-          "overrides": null,
-          "parameters":
-          {
+          "parameters": {
             "id": 7,
             "nodeType": "ParameterList",
             "parameters": [],
             "src": "49:2:1"
           },
-          "returnParameters":
-          {
+          "returnParameters": {
             "id": 11,
             "nodeType": "ParameterList",
             "parameters": [],
@@ -175,7 +148,9 @@
         }
       ],
       "scope": 15,
-      "src": "0:68:1"
+      "src": "0:68:1",
+      "usedErrors": [],
+      "usedEvents": []
     }
   ],
   "src": "0:69:1"

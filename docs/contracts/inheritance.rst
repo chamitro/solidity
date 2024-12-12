@@ -36,30 +36,30 @@ some :ref:`differences <multi-inheritance>`.
 
 Details are given in the following example.
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity ^0.6.0;
-
+    pragma solidity >=0.7.0 <0.9.0;
 
     contract Owned {
-        constructor() public { owner = msg.sender; }
         address payable owner;
+        constructor() { owner = payable(msg.sender); }
     }
-
 
     // Use `is` to derive from another contract. Derived
     // contracts can access all non-private members including
     // internal functions and state variables. These cannot be
     // accessed externally via `this`, though.
-    contract Destructible is Owned {
+    contract Emittable is Owned {
+        event Emitted();
+
         // The keyword `virtual` means that the function can change
-        // its behaviour in derived classes ("overriding").
-        function destroy() virtual public {
-            if (msg.sender == owner) selfdestruct(owner);
+        // its behavior in derived classes ("overriding").
+        function emitEvent() virtual public {
+            if (msg.sender == owner)
+                emit Emitted();
         }
     }
-
 
     // These abstract contracts are only provided to make the
     // interface known to the compiler. Note the function
@@ -69,126 +69,169 @@ Details are given in the following example.
         function lookup(uint id) public virtual returns (address adr);
     }
 
-
     abstract contract NameReg {
         function register(bytes32 name) public virtual;
         function unregister() public virtual;
     }
 
-
-    // Multiple inheritance is possible. Note that `owned` is
-    // also a base class of `Destructible`, yet there is only a single
-    // instance of `owned` (as for virtual inheritance in C++).
-    contract Named is Owned, Destructible {
-        constructor(bytes32 name) public {
+    // Multiple inheritance is possible. Note that `Owned` is
+    // also a base class of `Emittable`, yet there is only a single
+    // instance of `Owned` (as for virtual inheritance in C++).
+    contract Named is Owned, Emittable {
+        constructor(bytes32 name) {
             Config config = Config(0xD5f9D8D94886E70b06E474c3fB14Fd43E2f23970);
             NameReg(config.lookup(1)).register(name);
         }
 
         // Functions can be overridden by another function with the same name and
-        // the same number/types of inputs.  If the overriding function has different
+        // the same number/types of inputs. If the overriding function has different
         // types of output parameters, that causes an error.
         // Both local and message-based function calls take these overrides
         // into account.
         // If you want the function to override, you need to use the
         // `override` keyword. You need to specify the `virtual` keyword again
         // if you want this function to be overridden again.
-        function destroy() public virtual override {
+        function emitEvent() public virtual override {
             if (msg.sender == owner) {
                 Config config = Config(0xD5f9D8D94886E70b06E474c3fB14Fd43E2f23970);
                 NameReg(config.lookup(1)).unregister();
                 // It is still possible to call a specific
                 // overridden function.
-                Destructible.destroy();
+                Emittable.emitEvent();
             }
         }
     }
 
 
     // If a constructor takes an argument, it needs to be
-    // provided in the header (or modifier-invocation-style at
-    // the constructor of the derived contract (see below)).
-    contract PriceFeed is Owned, Destructible, Named("GoldFeed") {
+    // provided in the header or modifier-invocation-style at
+    // the constructor of the derived contract (see below).
+    contract PriceFeed is Owned, Emittable, Named("GoldFeed") {
+        uint info;
+
         function updateInfo(uint newInfo) public {
             if (msg.sender == owner) info = newInfo;
         }
 
         // Here, we only specify `override` and not `virtual`.
         // This means that contracts deriving from `PriceFeed`
-        // cannot change the behaviour of `destroy` anymore.
-        function destroy() public override(Destructible, Named) { Named.destroy(); }
+        // cannot change the behavior of `emitEvent` anymore.
+        function emitEvent() public override(Emittable, Named) { Named.emitEvent(); }
         function get() public view returns(uint r) { return info; }
-
-        uint info;
     }
 
-Note that above, we call ``Destructible.destroy()`` to "forward" the
-destruction request. The way this is done is problematic, as
-seen in the following example::
+Note that above, we call ``Emittable.emitEvent()`` to "forward" the
+emit event request. The way this is done is problematic, as
+seen in the following example:
+
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity ^0.6.0;
+    pragma solidity >=0.7.0 <0.9.0;
 
-    contract owned {
-        constructor() public { owner = msg.sender; }
+    contract Owned {
         address payable owner;
+        constructor() { owner = payable(msg.sender); }
     }
 
-    contract Destructible is owned {
-        function destroy() public virtual {
-            if (msg.sender == owner) selfdestruct(owner);
+    contract Emittable is Owned {
+        event Emitted();
+
+        function emitEvent() virtual public {
+            if (msg.sender == owner) {
+                emit Emitted();
+            }
         }
     }
 
-    contract Base1 is Destructible {
-        function destroy() public virtual override { /* do cleanup 1 */ Destructible.destroy(); }
+    contract Base1 is Emittable {
+        event Base1Emitted();
+        function emitEvent() public virtual override {
+            /* Here, we emit an event to simulate some Base1 logic */
+            emit Base1Emitted();
+            Emittable.emitEvent();
+        }
     }
 
-    contract Base2 is Destructible {
-        function destroy() public virtual override { /* do cleanup 2 */ Destructible.destroy(); }
+    contract Base2 is Emittable {
+        event Base2Emitted();
+        function emitEvent() public virtual override {
+            /* Here, we emit an event to simulate some Base2 logic */
+            emit Base2Emitted();
+            Emittable.emitEvent();
+        }
     }
 
     contract Final is Base1, Base2 {
-        function destroy() public override(Base1, Base2) { Base2.destroy(); }
+        event FinalEmitted();
+        function emitEvent() public override(Base1, Base2) {
+            /* Here, we emit an event to simulate some Final logic */
+            emit FinalEmitted();
+            Base2.emitEvent();
+        }
     }
 
-A call to ``Final.destroy()`` will call ``Base2.destroy`` because we specify it
+A call to ``Final.emitEvent()`` will call ``Base2.emitEvent`` because we specify it
 explicitly in the final override, but this function will bypass
-``Base1.destroy``. The way around this is to use ``super``::
+``Base1.emitEvent``, resulting in the following sequence of events:
+``FinalEmitted -> Base2Emitted -> Emitted``, instead of the expected sequence:
+``FinalEmitted -> Base2Emitted -> Base1Emitted -> Emitted``.
+The way around this is to use ``super``:
+
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.7.0 <0.9.0;
 
-    contract owned {
-        constructor() public { owner = msg.sender; }
+    contract Owned {
         address payable owner;
+        constructor() { owner = payable(msg.sender); }
     }
 
-    contract Destructible is owned {
-        function destroy() virtual public {
-            if (msg.sender == owner) selfdestruct(owner);
+    contract Emittable is Owned {
+        event Emitted();
+
+        function emitEvent() virtual public {
+            if (msg.sender == owner) {
+                emit Emitted();
+            }
         }
     }
 
-    contract Base1 is Destructible {
-        function destroy() public virtual override { /* do cleanup 1 */ super.destroy(); }
+    contract Base1 is Emittable {
+        event Base1Emitted();
+        function emitEvent() public virtual override {
+            /* Here, we emit an event to simulate some Base1 logic */
+            emit Base1Emitted();
+            super.emitEvent();
+        }
     }
 
 
-    contract Base2 is Destructible {
-        function destroy() public virtual override { /* do cleanup 2 */ super.destroy(); }
+    contract Base2 is Emittable {
+        event Base2Emitted();
+        function emitEvent() public virtual override {
+            /* Here, we emit an event to simulate some Base2 logic */
+            emit Base2Emitted();
+            super.emitEvent();
+        }
     }
 
     contract Final is Base1, Base2 {
-        function destroy() public override(Base1, Base2) { super.destroy(); }
+        event FinalEmitted();
+        function emitEvent() public override(Base1, Base2) {
+            /* Here, we emit an event to simulate some Final logic */
+            emit FinalEmitted();
+            super.emitEvent();
+        }
     }
 
-If ``Base2`` calls a function of ``super``, it does not simply
+If ``Final`` calls a function of ``super``, it does not simply
 call this function on one of its base contracts.  Rather, it
 calls this function on the next base contract in the final
-inheritance graph, so it will call ``Base1.destroy()`` (note that
+inheritance graph, so it will call ``Base1.emitEvent()`` (note that
 the final inheritance sequence is -- starting with the most
-derived contract: Final, Base2, Base1, Destructible, owned).
+derived contract: Final, Base2, Base1, Emittable, Owned).
 The actual function that is called when using super is
 not known in the context of the class where it is used,
 although its type is known. This is similar for ordinary
@@ -203,23 +246,29 @@ Function Overriding
 
 Base functions can be overridden by inheriting contracts to change their
 behavior if they are marked as ``virtual``. The overriding function must then
-use the ``override`` keyword in the function header as shown in this example:
+use the ``override`` keyword in the function header.
+The overriding function may only change the visibility of the overridden function from ``external`` to ``public``.
+The mutability may be changed to a more strict one following the order:
+``nonpayable`` can be overridden by ``view`` and ``pure``. ``view`` can be overridden by ``pure``.
+``payable`` is an exception and cannot be changed to any other mutability.
 
-::
+The following example demonstrates changing mutability and visibility:
+
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.7.0 <0.9.0;
 
     contract Base
     {
-        function foo() virtual public {}
+        function foo() virtual external view {}
     }
 
     contract Middle is Base {}
 
     contract Inherited is Middle
     {
-        function foo() public override {}
+        function foo() override public pure {}
     }
 
 For multiple inheritance, the most derived base contracts that define the same
@@ -229,10 +278,10 @@ and have not yet been overridden by another base contract (on some path through 
 Additionally, if a contract inherits the same function from multiple (unrelated)
 bases, it has to explicitly override it:
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.6.0 <0.9.0;
 
     contract Base1
     {
@@ -256,10 +305,10 @@ the function is defined in a common base contract
 or if there is a unique function in a common base contract
 that already overrides all other functions.
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.6.0 <0.9.0;
 
     contract A { function f() public pure{} }
     contract B is A {}
@@ -281,7 +330,7 @@ and ends at a contract mentioning a function with that signature
 that does not override.
 
 If you do not mark a function that overrides as ``virtual``, derived
-contracts can no longer change the behaviour of that function.
+contracts can no longer change the behavior of that function.
 
 .. note::
 
@@ -293,18 +342,25 @@ contracts can no longer change the behaviour of that function.
   outside of interfaces. In interfaces, all functions are
   automatically considered ``virtual``.
 
+.. note::
+
+  Starting from Solidity 0.8.8, the ``override`` keyword is not
+  required when overriding an interface function, except for the
+  case where the function is defined in multiple bases.
+
+
 Public state variables can override external functions if the
 parameter and return types of the function matches the getter function
 of the variable:
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.6.0 <0.9.0;
 
     contract A
     {
-        function f() external pure virtual returns(uint) { return 5; }
+        function f() external view virtual returns(uint) { return 5; }
     }
 
     contract B is A
@@ -325,14 +381,14 @@ Modifier Overriding
 ===================
 
 Function modifiers can override each other. This works in the same way as
-`function overriding <function-overriding>`_ (except that there is no overloading for modifiers). The
+:ref:`function overriding <function-overriding>` (except that there is no overloading for modifiers). The
 ``virtual`` keyword must be used on the overridden modifier
 and the ``override`` keyword must be used in the overriding modifier:
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.6.0 <0.9.0;
 
     contract Base
     {
@@ -348,10 +404,10 @@ and the ``override`` keyword must be used in the overriding modifier:
 In case of multiple inheritance, all direct base contracts must be specified
 explicitly:
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.6.0 <0.7.0;
+    pragma solidity >=0.6.0 <0.9.0;
 
     contract Base1
     {
@@ -379,10 +435,10 @@ Constructors
 
 A constructor is an optional function declared with the ``constructor`` keyword
 which is executed upon contract creation, and where you can run contract
-initialisation code.
+initialization code.
 
 Before the constructor code is executed, state variables are initialised to
-their specified value if you initialise them inline, or zero if you do not.
+their specified value if you initialise them inline, or their :ref:`default value<default-value>` if you do not.
 
 After the constructor has run, the final code of the contract is deployed
 to the blockchain. The deployment of
@@ -392,66 +448,83 @@ and all functions that are reachable from there through function calls.
 It does not include the constructor code or internal functions that are
 only called from the constructor.
 
-Constructor functions can be either ``public`` or ``internal``. If there is no
+If there is no
 constructor, the contract will assume the default constructor, which is
-equivalent to ``constructor() public {}``. For example:
+equivalent to ``constructor() {}``. For example:
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >=0.7.0 <0.9.0;
 
-    contract A {
+    abstract contract A {
         uint public a;
 
-        constructor(uint _a) internal {
-            a = _a;
+        constructor(uint a_) {
+            a = a_;
         }
     }
 
     contract B is A(1) {
-        constructor() public {}
+        constructor() {}
     }
 
-A constructor set as ``internal`` causes the contract to be marked as :ref:`abstract <abstract-contract>`.
+You can use internal parameters in a constructor (for example storage pointers). In this case,
+the contract has to be marked :ref:`abstract <abstract-contract>`, because these parameters
+cannot be assigned valid values from outside but only through the constructors of derived contracts.
 
-.. warning ::
+.. warning::
     Prior to version 0.4.22, constructors were defined as functions with the same name as the contract.
     This syntax was deprecated and is not allowed anymore in version 0.5.0.
 
+.. warning::
+    Prior to version 0.7.0, you had to specify the visibility of constructors as either
+    ``internal`` or ``public``.
 
-.. index:: ! base;constructor
+
+.. index:: ! base;constructor, inheritance list, contract;abstract, abstract contract
 
 Arguments for Base Constructors
 ===============================
 
 The constructors of all the base contracts will be called following the
 linearization rules explained below. If the base constructors have arguments,
-derived contracts need to specify all of them. This can be done in two ways::
+derived contracts need to specify all of them. This can be done in two ways:
+
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.4.22 <0.7.0;
+    pragma solidity >=0.7.0 <0.9.0;
 
     contract Base {
         uint x;
-        constructor(uint _x) public { x = _x; }
+        constructor(uint x_) { x = x_; }
     }
 
     // Either directly specify in the inheritance list...
     contract Derived1 is Base(7) {
-        constructor() public {}
+        constructor() {}
     }
 
-    // or through a "modifier" of the derived constructor.
+    // or through a "modifier" of the derived constructor...
     contract Derived2 is Base {
-        constructor(uint _y) Base(_y * _y) public {}
+        constructor(uint y) Base(y * y) {}
+    }
+
+    // or declare abstract...
+    abstract contract Derived3 is Base {
+    }
+
+    // and have the next concrete derived contract initialize it.
+    contract DerivedFromDerived is Derived3 {
+        constructor() Base(10 + 10) {}
     }
 
 One way is directly in the inheritance list (``is Base(7)``).  The other is in
 the way a modifier is invoked as part of
-the derived constructor (``Base(_y * _y)``). The first way to
+the derived constructor (``Base(y * y)``). The first way to
 do it is more convenient if the constructor argument is a
-constant and defines the behaviour of the contract or
+constant and defines the behavior of the contract or
 describes it. The second way has to be used if the
 constructor arguments of the base depend on those of the
 derived contract. Arguments have to be given either in the
@@ -459,7 +532,12 @@ inheritance list or in modifier-style in the derived constructor.
 Specifying arguments in both places is an error.
 
 If a derived contract does not specify the arguments to all of its base
-contracts' constructors, it will be abstract.
+contracts' constructors, it must be declared abstract. In that case, when
+another contract derives from it, that other contract's inheritance list
+or constructor must provide the necessary parameters
+for all base classes that haven't had their parameters specified (otherwise,
+that other contract must be declared abstract as well). For example, in the above
+code snippet, see ``Derived3`` and ``DerivedFromDerived``.
 
 .. index:: ! inheritance;multiple, ! linearization, ! C3 linearization
 
@@ -487,10 +565,10 @@ stopping at the first match. If a base contract has already been searched, it is
 In the following code, Solidity will give the
 error "Linearization of inheritance graph impossible".
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.4.0 <0.7.0;
+    pragma solidity >=0.4.0 <0.9.0;
 
     contract X {}
     contract A is X {}
@@ -508,17 +586,17 @@ C3 linearization is not too important in practice.
 
 One area where inheritance linearization is especially important and perhaps not as clear is when there are multiple constructors in the inheritance hierarchy. The constructors will always be executed in the linearized order, regardless of the order in which their arguments are provided in the inheriting contract's constructor.  For example:
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.4.22 <0.7.0;
+    pragma solidity >=0.7.0 <0.9.0;
 
     contract Base1 {
-        constructor() public {}
+        constructor() {}
     }
 
     contract Base2 {
-        constructor() public {}
+        constructor() {}
     }
 
     // Constructors are executed in the following order:
@@ -526,7 +604,7 @@ One area where inheritance linearization is especially important and perhaps not
     //  2 - Base2
     //  3 - Derived1
     contract Derived1 is Base1, Base2 {
-        constructor() public Base1() Base2() {}
+        constructor() Base1() Base2() {}
     }
 
     // Constructors are executed in the following order:
@@ -534,7 +612,7 @@ One area where inheritance linearization is especially important and perhaps not
     //  2 - Base1
     //  3 - Derived2
     contract Derived2 is Base2, Base1 {
-        constructor() public Base2() Base1() {}
+        constructor() Base2() Base1() {}
     }
 
     // Constructors are still executed in the following order:
@@ -542,16 +620,18 @@ One area where inheritance linearization is especially important and perhaps not
     //  2 - Base1
     //  3 - Derived3
     contract Derived3 is Base2, Base1 {
-        constructor() public Base1() Base2() {}
+        constructor() Base1() Base2() {}
     }
 
 
 Inheriting Different Kinds of Members of the Same Name
 ======================================================
 
-It is an error when any of the following pairs in a contract have the same name due to inheritance:
-  - a function and a modifier
-  - a function and an event
-  - an event and a modifier
+The only situations where, due to inheritance, a contract may contain multiple definitions sharing
+the same name are:
 
-As an exception, a state variable getter can override an external function.
+- Overloading of functions.
+- Overriding of virtual functions.
+- Overriding of external virtual functions by state variable getters.
+- Overriding of virtual modifiers.
+- Overloading of events.

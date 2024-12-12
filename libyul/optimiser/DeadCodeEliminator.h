@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimisation stage that removes unused variables and functions.
  */
@@ -21,21 +22,24 @@
 #pragma once
 
 #include <libyul/optimiser/ASTWalker.h>
-#include <libyul/YulString.h>
+#include <libyul/YulName.h>
+#include <libyul/ControlFlowSideEffects.h>
 
 #include <map>
 #include <set>
 
 namespace solidity::yul
 {
-struct Dialect;
+class Dialect;
 struct OptimiserStepContext;
 
 /**
  * Optimisation stage that removes unreachable code
  *
  * Unreachable code is any code within a block which is preceded by a
- * leave, return, invalid, break, continue, selfdestruct or revert.
+ * leave, return, invalid, break, continue, selfdestruct or revert or
+ * a call to a user-defined function that never returns (either due to
+ * recursion or a call to return / revert / stop).
  *
  * Function definitions are retained as they might be called by earlier
  * code and thus are considered reachable.
@@ -56,9 +60,13 @@ public:
 	void operator()(Block& _block) override;
 
 private:
-	DeadCodeEliminator(Dialect const& _dialect): m_dialect(_dialect) {}
+	DeadCodeEliminator(
+		Dialect const& _dialect,
+		std::map<YulName, ControlFlowSideEffects> _sideEffects
+	): m_dialect(_dialect), m_functionSideEffects(std::move(_sideEffects)) {}
 
 	Dialect const& m_dialect;
+	std::map<YulName, ControlFlowSideEffects> m_functionSideEffects;
 };
 
 }

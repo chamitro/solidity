@@ -42,10 +42,7 @@
 
 #pragma once
 
-#include <libsolutil/Common.h>
-#include <liblangutil/Exceptions.h>
-#include <liblangutil/UndefMacros.h>
-
+#include <cstdint>
 #include <iosfwd>
 #include <string>
 #include <tuple>
@@ -68,11 +65,11 @@ namespace solidity::langutil
 
 #define IGNORE_TOKEN(name, string, precedence)
 
-#define TOKEN_LIST(T, K)												\
-	/* End of source indicator. */										\
-	T(EOS, "EOS", 0)													\
-																		\
-	/* Punctuators (ECMA-262, section 7.7, page 15). */				\
+#define TOKEN_LIST(T, K)                                                \
+	/* End of source indicator. */                                      \
+	T(EOS, "EOS", 0)                                                    \
+	\
+	/* Punctuators (ECMA-262, section 7.7, page 15). */                 \
 	T(LParen, "(", 0)                                                   \
 	T(RParen, ")", 0)                                                   \
 	T(LBrack, "[", 0)                                                   \
@@ -83,11 +80,12 @@ namespace solidity::langutil
 	T(Semicolon, ";", 0)                                                \
 	T(Period, ".", 0)                                                   \
 	T(Conditional, "?", 3)                                              \
-	T(Arrow, "=>", 0)                                                   \
+	T(DoubleArrow, "=>", 0)                                             \
+	T(RightArrow, "->", 0)                                              \
 	\
-	/* Assignment operators. */										\
-	/* IsAssignmentOp() relies on this block of enum values being */	\
-	/* contiguous and sorted in the same order!*/						\
+	/* Assignment operators. */                                         \
+	/* IsAssignmentOp() relies on this block of enum values being */    \
+	/* contiguous and sorted in the same order!*/                       \
 	T(Assign, "=", 2)                                                   \
 	/* The following have to be in exactly the same order as the simple binary operators*/ \
 	T(AssignBitOr, "|=", 2)                                           \
@@ -148,6 +146,7 @@ namespace solidity::langutil
 	K(As, "as", 0)                                                     \
 	K(Assembly, "assembly", 0)                                         \
 	K(Break, "break", 0)                                               \
+	K(Catch, "catch", 0)                                               \
 	K(Constant, "constant", 0)                                         \
 	K(Constructor, "constructor", 0)                                   \
 	K(Continue, "continue", 0)                                         \
@@ -187,17 +186,18 @@ namespace solidity::langutil
 	K(CallData, "calldata", 0)                                         \
 	K(Struct, "struct", 0)                                             \
 	K(Throw, "throw", 0)                                               \
+	K(Try, "try", 0)                                                   \
 	K(Type, "type", 0)                                                 \
+	K(Unchecked, "unchecked", 0)                                       \
+	K(Unicode, "unicode", 0)                                           \
 	K(Using, "using", 0)                                               \
-	K(Var, "var", 0)                                                   \
 	K(View, "view", 0)                                                 \
 	K(Virtual, "virtual", 0)                                           \
 	K(While, "while", 0)                                               \
 	\
 	/* Ether subdenominations */                                       \
 	K(SubWei, "wei", 0)                                                \
-	K(SubSzabo, "szabo", 0)                                            \
-	K(SubFinney, "finney", 0)                                          \
+	K(SubGwei, "gwei", 0)                                              \
 	K(SubEther, "ether", 0)                                            \
 	K(SubSecond, "seconds", 0)                                         \
 	K(SubMinute, "minutes", 0)                                         \
@@ -209,7 +209,6 @@ namespace solidity::langutil
 	K(Int, "int", 0)                                                   \
 	K(UInt, "uint", 0)                                                 \
 	K(Bytes, "bytes", 0)                                               \
-	K(Byte, "byte", 0)                                                 \
 	K(String, "string", 0)                                             \
 	K(Address, "address", 0)                                           \
 	K(Bool, "bool", 0)                                                 \
@@ -227,6 +226,7 @@ namespace solidity::langutil
 	K(FalseLiteral, "false", 0)                                        \
 	T(Number, nullptr, 0)                                              \
 	T(StringLiteral, nullptr, 0)                                       \
+	T(UnicodeStringLiteral, nullptr, 0)                                \
 	T(HexStringLiteral, nullptr, 0)                                    \
 	T(CommentLiteral, nullptr, 0)                                      \
 	\
@@ -238,8 +238,8 @@ namespace solidity::langutil
 	K(Alias, "alias", 0)                                               \
 	K(Apply, "apply", 0)                                               \
 	K(Auto, "auto", 0)                                                 \
+	K(Byte, "byte", 0)                                                 \
 	K(Case, "case", 0)                                                 \
-	K(Catch, "catch", 0)                                               \
 	K(CopyOf, "copyof", 0)                                             \
 	K(Default, "default", 0)                                           \
 	K(Define, "define", 0)                                             \
@@ -262,10 +262,23 @@ namespace solidity::langutil
 	K(Static, "static", 0)                                             \
 	K(Supports, "supports", 0)                                         \
 	K(Switch, "switch", 0)                                             \
-	K(Try, "try", 0)                                                   \
 	K(Typedef, "typedef", 0)                                           \
 	K(TypeOf, "typeof", 0)                                             \
-	K(Unchecked, "unchecked", 0)                                       \
+	K(Var, "var", 0)                                                   \
+	\
+	/* Yul-specific tokens, but not keywords. */                       \
+	T(Leave, "leave", 0)                                               \
+	\
+	T(NonExperimentalEnd, nullptr, 0) /* used as non-experimental enum end marker */ \
+	/* Experimental Solidity specific keywords. */                     \
+	K(Class, "class", 0)                                               \
+	K(Instantiation, "instantiation", 0)                               \
+	K(Integer, "Integer", 0)                                           \
+	K(Itself, "itself", 0)                                             \
+	K(StaticAssert, "static_assert", 0)                                \
+	K(Builtin, "__builtin", 0)                                         \
+	K(ForAll, "forall", 0)                                             \
+	T(ExperimentalEnd, nullptr, 0) /* used as experimental enum end marker */ \
 	\
 	/* Illegal token - not able to scan. */                            \
 	T(Illegal, "ILLEGAL", 0)                                           \
@@ -289,7 +302,7 @@ namespace TokenTraits
 	constexpr size_t count() { return static_cast<size_t>(Token::NUM_TOKENS); }
 
 	// Predicates
-	constexpr bool isElementaryTypeName(Token tok) { return Token::Int <= tok && tok < Token::TypesEnd; }
+	constexpr bool isElementaryTypeName(Token _token) { return Token::Int <= _token && _token < Token::TypesEnd; }
 	constexpr bool isAssignmentOp(Token tok) { return Token::Assign <= tok && tok <= Token::AssignMod; }
 	constexpr bool isBinaryOp(Token op) { return Token::Comma <= op && op <= Token::Exp; }
 	constexpr bool isCommutativeOp(Token op) { return op == Token::BitOr || op == Token::BitXor || op == Token::BitAnd ||
@@ -299,32 +312,99 @@ namespace TokenTraits
 
 	constexpr bool isBitOp(Token op) { return (Token::BitOr <= op && op <= Token::BitAnd) || op == Token::BitNot; }
 	constexpr bool isBooleanOp(Token op) { return (Token::Or <= op && op <= Token::And) || op == Token::Not; }
-	constexpr bool isUnaryOp(Token op) { return (Token::Not <= op && op <= Token::Delete) || op == Token::Add || op == Token::Sub; }
+	constexpr bool isUnaryOp(Token op) { return (Token::Not <= op && op <= Token::Delete) || op == Token::Sub; }
 	constexpr bool isCountOp(Token op) { return op == Token::Inc || op == Token::Dec; }
 	constexpr bool isShiftOp(Token op) { return (Token::SHL <= op) && (op <= Token::SHR); }
 	constexpr bool isVariableVisibilitySpecifier(Token op) { return op == Token::Public || op == Token::Private || op == Token::Internal; }
 	constexpr bool isVisibilitySpecifier(Token op) { return isVariableVisibilitySpecifier(op) || op == Token::External; }
 	constexpr bool isLocationSpecifier(Token op) { return op == Token::Memory || op == Token::Storage || op == Token::CallData; }
 
-	constexpr bool isStateMutabilitySpecifier(Token op, bool _allowConstant = true)
+	constexpr bool isStateMutabilitySpecifier(Token op)
 	{
-		return (op == Token::Constant && _allowConstant)
-			|| op == Token::Pure || op == Token::View || op == Token::Payable;
+		return op == Token::Pure || op == Token::View || op == Token::Payable;
 	}
 
-	constexpr bool isEtherSubdenomination(Token op) { return op == Token::SubWei || op == Token::SubSzabo || op == Token::SubFinney || op == Token::SubEther; }
+	constexpr bool isEtherSubdenomination(Token op) { return op >= Token::SubWei && op <= Token::SubEther; }
 	constexpr bool isTimeSubdenomination(Token op) { return op == Token::SubSecond || op == Token::SubMinute || op == Token::SubHour || op == Token::SubDay || op == Token::SubWeek || op == Token::SubYear; }
-	constexpr bool isReservedKeyword(Token op) { return (Token::After <= op && op <= Token::Unchecked); }
+	constexpr bool isReservedKeyword(Token op) { return (Token::After <= op && op <= Token::Var); }
 
-	inline Token AssignmentToBinaryOp(Token op)
+	constexpr bool isYulKeyword(Token tok)
 	{
-		solAssert(isAssignmentOp(op) && op != Token::Assign, "");
-		return static_cast<Token>(static_cast<int>(op) + (static_cast<int>(Token::BitOr) - static_cast<int>(Token::AssignBitOr)));
+		return tok == Token::Function || tok == Token::Let || tok == Token::If || tok == Token::Switch || tok == Token::Case ||
+			tok == Token::Default || tok == Token::For || tok == Token::Break || tok == Token::Continue || tok == Token::Leave ||
+			tok == Token::TrueLiteral || tok == Token::FalseLiteral || tok == Token::HexStringLiteral || tok == Token::Hex;
 	}
+
+	constexpr bool isBuiltinTypeClassName(Token _token)
+	{
+		return
+			_token == Token::Integer ||
+			(isBinaryOp(_token) && _token != Token::Comma) ||
+			isCompareOp(_token) ||
+			isUnaryOp(_token) ||
+			(isAssignmentOp(_token) && _token != Token::Assign);
+	}
+
+	constexpr bool isExperimentalSolidityKeyword(Token token)
+	{
+		return
+			token == Token::Assembly ||
+			token == Token::Contract ||
+			token == Token::External ||
+			token == Token::Fallback ||
+			token == Token::Pragma ||
+			token == Token::Import ||
+			token == Token::As ||
+			token == Token::Function ||
+			token == Token::Let ||
+			token == Token::Return ||
+			token == Token::Type ||
+			token == Token::If ||
+			token == Token::Else ||
+			token == Token::Do ||
+			token == Token::While ||
+			token == Token::For ||
+			token == Token::Continue ||
+			token == Token::Break ||
+			(token > Token::NonExperimentalEnd && token< Token::ExperimentalEnd);
+	}
+
+	constexpr bool isExperimentalSolidityOnlyKeyword(Token _token)
+	{
+		// TODO: use token > Token::NonExperimentalEnd && token < Token::ExperimentalEnd
+		// as soon as other experimental tokens are added. For now the comparison generates
+		// a warning from clang because it is always false.
+		return _token > Token::NonExperimentalEnd && _token < Token::ExperimentalEnd;
+	}
+
+	bool isYulKeyword(std::string const& _literal);
+
+	Token AssignmentToBinaryOp(Token op);
 
 	// @returns the precedence > 0 for binary and compare
 	// operators; returns 0 otherwise.
-	int precedence(Token tok);
+	constexpr int precedence(Token tok)
+	{
+		int8_t constexpr precs[TokenTraits::count()] =
+		{
+			#define T(name, string, precedence) precedence,
+			TOKEN_LIST(T, T)
+			#undef T
+		};
+		return precs[static_cast<size_t>(tok)];
+	}
+
+	constexpr bool hasExpHighestPrecedence()
+	{
+		constexpr int expPrecedence = TokenTraits::precedence(Token::Exp);
+		static_assert(expPrecedence == 14, "Exp precedence changed.");
+
+		#define T(name, string, precedence) ((Token::name == Token::Exp) || precedence < expPrecedence) &&
+		return
+			TOKEN_LIST(T, T)
+			true;
+		#undef T
+	}
 
 	std::tuple<Token, unsigned int, unsigned int> fromIdentifierOrKeyword(std::string const& _literal);
 
@@ -359,17 +439,7 @@ public:
 	Token token() const { return m_token; }
 
 	///if tokValue is set to true, then returns the actual token type name, otherwise, returns full type
-	std::string toString(bool const& tokenValue = false) const
-	{
-		std::string name = TokenTraits::toString(m_token);
-		if (tokenValue || (firstNumber() == 0 && secondNumber() == 0))
-			return name;
-		solAssert(name.size() >= 3, "Token name size should be greater than 3. Should not reach here.");
-		if (m_token == Token::FixedMxN || m_token == Token::UFixedMxN)
-			return name.substr(0, name.size() - 3) + std::to_string(m_firstNumber) + "x" + std::to_string(m_secondNumber);
-		else
-			return name.substr(0, name.size() - 1) + std::to_string(m_firstNumber);
-	}
+	std::string toString(bool const& tokenValue = false) const;
 
 private:
 	Token m_token;

@@ -19,8 +19,7 @@
 #include <test/libsolidity/util/SoltestErrors.h>
 
 #include <libsolutil/CommonData.h>
-
-#include <json/json.h>
+#include <libsolutil/JSON.h>
 
 namespace solidity::frontend::test
 {
@@ -40,7 +39,7 @@ public:
 	/// auto-correction during interactive update routine.
 	static std::optional<ParameterList> parametersFromJsonOutputs(
 		ErrorReporter& _errorReporter,
-		Json::Value const& _contractABI,
+		Json const& _contractABI,
 		std::string const& _functionSignature
 	);
 
@@ -65,7 +64,7 @@ public:
 	/// returned values in case of a failure. Creates an additional parameter
 	/// for the error message if _bytes is larger than 68 bytes
 	/// (function_selector + tail_ptr + message_length).
-	static ParameterList failureParameters(bytes const _bytes);
+	static ParameterList failureParameters(bytes const& _bytes);
 
 	/// Returns _count parameters with their type set to ABIType::UnsignedDec
 	/// and their size set to 32 bytes.
@@ -86,7 +85,7 @@ private:
 	/// `bytes` -> [`Unsigned`, `Unsigned`, `HexString`]
 	/// ...
 	static bool appendTypesFromName(
-		Json::Value const& _functionOutput,
+		Json const& _functionOutput,
 		ABITypes& _inplaceTypes,
 		ABITypes& _dynamicTypes,
 		bool _isCompoundType = false

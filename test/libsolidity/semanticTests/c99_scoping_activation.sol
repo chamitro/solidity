@@ -34,8 +34,6 @@ contract test {
         }
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f() -> 3
 // g() -> 0

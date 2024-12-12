@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
@@ -56,9 +57,14 @@ struct IntSort: public Sort
 		isSigned(_signed)
 	{}
 
-	bool operator==(IntSort const& _other) const
+	bool operator==(Sort const& _other) const override
 	{
-		return Sort::operator==(_other) && isSigned == _other.isSigned;
+		if (!Sort::operator==(_other))
+			return false;
+
+		auto otherIntSort = dynamic_cast<IntSort const*>(&_other);
+		smtAssert(otherIntSort);
+		return isSigned == otherIntSort->isSigned;
 	}
 
 	bool isSigned;
@@ -71,9 +77,14 @@ struct BitVectorSort: public Sort
 		size(_size)
 	{}
 
-	bool operator==(BitVectorSort const& _other) const
+	bool operator==(Sort const& _other) const override
 	{
-		return Sort::operator==(_other) && size == _other.size;
+		if (!Sort::operator==(_other))
+			return false;
+
+		auto otherBitVectorSort = dynamic_cast<BitVectorSort const*>(&_other);
+		smtAssert(otherBitVectorSort);
+		return size == otherBitVectorSort->size;
 	}
 
 	unsigned size;
@@ -158,7 +169,15 @@ struct TupleSort: public Sort
 		name(std::move(_name)),
 		members(std::move(_members)),
 		components(std::move(_components))
-	{}
+	{
+		for (size_t i = 0; i < members.size(); ++i)
+			memberToIndex[members.at(i)] = i;
+	}
+
+	SortPointer memberSort(std::string const& _member)
+	{
+		return components.at(memberToIndex.at(_member));
+	}
 
 	bool operator==(Sort const& _other) const override
 	{
@@ -185,7 +204,9 @@ struct TupleSort: public Sort
 	std::string const name;
 	std::vector<std::string> const members;
 	std::vector<SortPointer> const components;
+	std::map<std::string, size_t> memberToIndex;
 };
+
 
 /** Frequently used sorts.*/
 struct SortProvider
@@ -194,6 +215,7 @@ struct SortProvider
 	static std::shared_ptr<IntSort> const uintSort;
 	static std::shared_ptr<IntSort> const sintSort;
 	static std::shared_ptr<IntSort> intSort(bool _signed = false);
+	static std::shared_ptr<BitVectorSort> const bitVectorSort;
 };
 
 }

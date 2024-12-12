@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <tools/yulPhaser/Chromosome.h>
 
@@ -24,7 +25,6 @@
 
 #include <sstream>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::phaser;
@@ -32,45 +32,59 @@ using namespace solidity::phaser;
 namespace solidity::phaser
 {
 
-ostream& operator<<(ostream& _stream, Chromosome const& _chromosome);
+std::ostream& operator<<(std::ostream& _stream, Chromosome const& _chromosome);
 
-}
-
-Chromosome::Chromosome(string const& _optimisationSteps)
-{
-	for (char abbreviation: _optimisationSteps)
-		m_optimisationSteps.push_back(OptimiserSuite::stepAbbreviationToNameMap().at(abbreviation));
 }
 
 Chromosome Chromosome::makeRandom(size_t _length)
 {
-	vector<string> steps;
+	std::vector<std::string> steps;
 	for (size_t i = 0; i < _length; ++i)
 		steps.push_back(randomOptimisationStep());
 
-	return Chromosome(move(steps));
+	return Chromosome(std::move(steps));
 }
 
-ostream& phaser::operator<<(ostream& _stream, Chromosome const& _chromosome)
+std::ostream& phaser::operator<<(std::ostream& _stream, Chromosome const& _chromosome)
 {
-	for (auto const& stepName: _chromosome.m_optimisationSteps)
-		_stream << OptimiserSuite::stepNameToAbbreviationMap().at(stepName);
-
-	return _stream;
+	return _stream << _chromosome.m_genes;
 }
 
-vector<string> Chromosome::allStepNames()
+std::vector<std::string> Chromosome::allStepNames()
 {
-	vector<string> stepNames;
+	std::vector<std::string> stepNames;
 	for (auto const& step: OptimiserSuite::allSteps())
 		stepNames.push_back(step.first);
 
 	return stepNames;
 }
 
-string const& Chromosome::randomOptimisationStep()
+std::string const& Chromosome::randomOptimisationStep()
 {
-	static vector<string> stepNames = allStepNames();
+	static std::vector<std::string> stepNames = allStepNames();
 
 	return stepNames[SimulationRNG::uniformInt(0, stepNames.size() - 1)];
+}
+
+char Chromosome::randomGene()
+{
+	return OptimiserSuite::stepNameToAbbreviationMap().at(randomOptimisationStep());
+}
+
+std::string Chromosome::stepsToGenes(std::vector<std::string> const& _optimisationSteps)
+{
+	std::string genes;
+	for (std::string const& stepName: _optimisationSteps)
+		genes.push_back(OptimiserSuite::stepNameToAbbreviationMap().at(stepName));
+
+	return genes;
+}
+
+std::vector<std::string> Chromosome::genesToSteps(std::string const& _genes)
+{
+	std::vector<std::string> steps;
+	for (char abbreviation: _genes)
+		steps.push_back(OptimiserSuite::stepAbbreviationToNameMap().at(abbreviation));
+
+	return steps;
 }

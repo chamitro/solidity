@@ -1,13 +1,13 @@
 contract A {
 	uint immutable a;
-	constructor() public {
+	constructor() {
 		a = 7;
 	}
 	function f() public view returns (uint) { return a; }
 }
 contract B {
 	uint immutable a;
-	constructor() public {
+	constructor() {
 		a = 5;
 	}
 	function f() public view returns (uint) { return a; }
@@ -16,7 +16,7 @@ contract C {
 	uint immutable a;
 	uint public x;
 	uint public y;
-	constructor() public {
+	constructor() {
 		a = 3;
 		x = (new A()).f();
 		y = (new B()).f();
@@ -25,9 +25,13 @@ contract C {
 		return (a, (new A()).f(), (new B()).f());
 	}
 }
-// ====
-// compileViaYul: also
 // ----
 // f() -> 3, 7, 5
+// gas irOptimized: 86796
+// gas irOptimized code: 37200
+// gas legacy: 87727
+// gas legacy code: 60800
+// gas legacyOptimized: 86770
+// gas legacyOptimized code: 37200
 // x() -> 7
 // y() -> 5

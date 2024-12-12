@@ -14,13 +14,12 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 #include <libsolidity/codegen/ir/Common.h>
 #include <libsolidity/codegen/ir/IRVariable.h>
 #include <libsolidity/ast/AST.h>
-#include <boost/range/adaptor/transformed.hpp>
 #include <libsolutil/StringUtils.h>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::frontend;
 using namespace solidity::util;
@@ -41,7 +40,7 @@ IRVariable::IRVariable(Expression const& _expression):
 {
 }
 
-IRVariable IRVariable::part(string const& _name) const
+IRVariable IRVariable::part(std::string const& _name) const
 {
 	for (auto const& [itemName, itemType]: m_type.stackItems())
 		if (itemName == _name)
@@ -52,9 +51,20 @@ IRVariable IRVariable::part(string const& _name) const
 	solAssert(false, "Invalid stack item name: " + _name);
 }
 
-vector<string> IRVariable::stackSlots() const
+bool IRVariable::hasPart(std::string const& _name) const
 {
-	vector<string> result;
+	for (auto const& [itemName, itemType]: m_type.stackItems())
+		if (itemName == _name)
+		{
+			solAssert(itemName.empty() || itemType, "");
+			return true;
+		}
+	return false;
+}
+
+std::vector<std::string> IRVariable::stackSlots() const
+{
+	std::vector<std::string> result;
 	for (auto const& [itemName, itemType]: m_type.stackItems())
 		if (itemType)
 		{
@@ -70,17 +80,17 @@ vector<string> IRVariable::stackSlots() const
 	return result;
 }
 
-string IRVariable::commaSeparatedList() const
+std::string IRVariable::commaSeparatedList() const
 {
 	return joinHumanReadable(stackSlots());
 }
 
-string IRVariable::commaSeparatedListPrefixed() const
+std::string IRVariable::commaSeparatedListPrefixed() const
 {
 	return joinHumanReadablePrefixed(stackSlots());
 }
 
-string IRVariable::name() const
+std::string IRVariable::name() const
 {
 	solAssert(m_type.sizeOnStack() == 1, "");
 	auto const& [itemName, type] = m_type.stackItems().front();
@@ -97,7 +107,7 @@ IRVariable IRVariable::tupleComponent(size_t _i) const
 	return part(IRNames::tupleComponent(_i));
 }
 
-string IRVariable::suffixedName(string const& _suffix) const
+std::string IRVariable::suffixedName(std::string const& _suffix) const
 {
 	if (_suffix.empty())
 		return m_baseName;

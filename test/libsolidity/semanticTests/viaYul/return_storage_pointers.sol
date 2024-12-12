@@ -10,7 +10,5 @@ contract C {
 	}
 
 }
-// ====
-// compileViaYul: also
 // ----
 // g() -> 0, 0

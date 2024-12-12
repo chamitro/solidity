@@ -14,6 +14,5 @@ contract C is A {
         if (false) _;
     }
 }
-
 // ----
 // f() -> false

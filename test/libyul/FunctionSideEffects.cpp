@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <test/libyul/FunctionSideEffects.h>
 #include <test/Common.h>
@@ -28,60 +29,82 @@
 #include <libyul/backends/evm/EVMDialect.h>
 
 #include <libsolutil/StringUtils.h>
+#include <libsolutil/Visitor.h>
 
 #include <boost/algorithm/string.hpp>
 
 
 using namespace solidity;
+using namespace solidity::test;
 using namespace solidity::util;
 using namespace solidity::langutil;
 using namespace solidity::yul;
 using namespace solidity::yul::test;
 using namespace solidity::frontend;
 using namespace solidity::frontend::test;
-using namespace std;
 
 namespace
 {
-string toString(SideEffects const& _sideEffects)
+std::string toString(SideEffects const& _sideEffects)
 {
-	vector<string> ret;
+	std::vector<std::string> ret;
 	if (_sideEffects.movable)
 		ret.emplace_back("movable");
-	if (_sideEffects.sideEffectFree)
-		ret.emplace_back("sideEffectFree");
-	if (_sideEffects.sideEffectFreeIfNoMSize)
-		ret.emplace_back("sideEffectFreeIfNoMSize");
-	if (_sideEffects.invalidatesStorage)
-		ret.emplace_back("invalidatesStorage");
-	if (_sideEffects.invalidatesMemory)
-		ret.emplace_back("invalidatesMemory");
+	if (_sideEffects.movableApartFromEffects)
+		ret.emplace_back("movable apart from effects");
+	if (_sideEffects.canBeRemoved)
+		ret.emplace_back("can be removed");
+	if (_sideEffects.canBeRemovedIfNoMSize)
+		ret.emplace_back("can be removed if no msize");
+	if (!_sideEffects.cannotLoop)
+		ret.emplace_back("can loop");
+	if (_sideEffects.otherState == SideEffects::Write)
+		ret.emplace_back("writes other state");
+	else if (_sideEffects.otherState == SideEffects::Read)
+		ret.emplace_back("reads other state");
+	if (_sideEffects.storage == SideEffects::Write)
+		ret.emplace_back("writes storage");
+	else if (_sideEffects.storage == SideEffects::Read)
+		ret.emplace_back("reads storage");
+	if (_sideEffects.memory == SideEffects::Write)
+		ret.emplace_back("writes memory");
+	else if (_sideEffects.memory == SideEffects::Read)
+		ret.emplace_back("reads memory");
+
 	return joinHumanReadable(ret);
 }
 }
 
-FunctionSideEffects::FunctionSideEffects(string const& _filename):
+FunctionSideEffects::FunctionSideEffects(std::string const& _filename):
 	TestCase(_filename)
 {
 	m_source = m_reader.source();
 	m_expectation = m_reader.simpleExpectations();
 }
 
-TestCase::TestResult FunctionSideEffects::run(ostream& _stream, string const& _linePrefix, bool _formatted)
+TestCase::TestResult FunctionSideEffects::run(std::ostream& _stream, std::string const& _linePrefix, bool _formatted)
 {
+	auto const& dialect = CommonOptions::get().evmDialect();
 	Object obj;
-	std::tie(obj.code, obj.analysisInfo) = yul::test::parse(m_source, false);
-	if (!obj.code)
-		BOOST_THROW_EXCEPTION(runtime_error("Parsing input failed."));
+	auto parsingResult = parse(m_source);
+	obj.setCode(parsingResult.first, parsingResult.second);
+	if (!obj.hasCode())
+		BOOST_THROW_EXCEPTION(std::runtime_error("Parsing input failed."));
 
-	map<YulString, SideEffects> functionSideEffects = SideEffectsPropagator::sideEffects(
-		EVMDialect::strictAssemblyForEVM(langutil::EVMVersion()),
-		CallGraphGenerator::callGraph(*obj.code)
+	std::map<FunctionHandle, SideEffects> functionSideEffects = SideEffectsPropagator::sideEffects(
+		dialect,
+		CallGraphGenerator::callGraph(obj.code()->root())
 	);
 
 	std::map<std::string, std::string> functionSideEffectsStr;
 	for (auto const& fun: functionSideEffects)
-		functionSideEffectsStr[fun.first.str()] = toString(fun.second);
+	{
+		auto const& functionNameStr = std::visit(GenericVisitor{
+			[](YulName const& _name) { return _name.str(); },
+			[&](BuiltinHandle const& _builtin) { return dialect.builtin(_builtin).name; }
+		}, fun.first);
+		functionSideEffectsStr[functionNameStr] = toString(fun.second);
+	}
 
 	m_obtainedResult.clear();
 	for (auto const& fun: functionSideEffectsStr)

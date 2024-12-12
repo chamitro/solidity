@@ -26,8 +26,6 @@ contract C {
         } while (x < 3);
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f() -> 1
 // g() -> 1

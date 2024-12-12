@@ -1,5 +1,5 @@
 // Tests that rational numbers (even negative ones) are encoded properly.
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 
 contract C {
@@ -7,8 +7,5 @@ contract C {
         return abi.encode(1, -2);
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 0x20, 0x40, 0x1, -2

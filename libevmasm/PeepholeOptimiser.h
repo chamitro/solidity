@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file PeepholeOptimiser.h
  * Performs local optimising code changes to assembly.
@@ -23,6 +24,8 @@
 #include <vector>
 #include <cstddef>
 #include <iterator>
+
+#include <liblangutil/EVMVersion.h>
 
 namespace solidity::evmasm
 {
@@ -40,7 +43,11 @@ public:
 class PeepholeOptimiser
 {
 public:
-	explicit PeepholeOptimiser(AssemblyItems& _items): m_items(_items) {}
+	explicit PeepholeOptimiser(AssemblyItems& _items, langutil::EVMVersion const _evmVersion):
+	m_items(_items),
+	m_evmVersion(_evmVersion)
+	{
+	}
 	virtual ~PeepholeOptimiser() = default;
 
 	bool optimise();
@@ -48,6 +55,7 @@ public:
 private:
 	AssemblyItems& m_items;
 	AssemblyItems m_optimisedItems;
+	langutil::EVMVersion const m_evmVersion;
 };
 
 }

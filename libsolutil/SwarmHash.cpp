@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /** @file SwarmHash.cpp
  */
 
@@ -21,14 +22,13 @@
 
 #include <libsolutil/Keccak256.h>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::util;
 
 namespace
 {
 
-bytes toLittleEndian(size_t _size)
+bytes toLittleEndian(uint64_t _size)
 {
 	bytes encoded(8);
 	for (size_t i = 0; i < 8; ++i)
@@ -41,7 +41,7 @@ h256 swarmHashSimple(bytesConstRef _data, size_t _size)
 	return keccak256(toLittleEndian(_size) + _data.toBytes());
 }
 
-h256 swarmHashIntermediate(string const& _input, size_t _offset, size_t _length)
+h256 swarmHashIntermediate(std::string const& _input, size_t _offset, size_t _length)
 {
 	bytesConstRef ref;
 	bytes innerNodes;
@@ -103,7 +103,7 @@ h256 chunkHash(bytesConstRef const _data, bool _forceHigherLevel = false)
 
 }
 
-h256 solidity::util::bzzr0Hash(string const& _input)
+h256 solidity::util::bzzr0Hash(std::string const& _input)
 {
 	return swarmHashIntermediate(_input, 0, _input.size());
 }

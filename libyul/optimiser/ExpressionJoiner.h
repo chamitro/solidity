@@ -14,13 +14,14 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that undoes what the ExpressionSplitter did, i.e.
  * it more or less inlines variable declarations.
  */
 #pragma once
 
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
 #include <libyul/optimiser/ASTWalker.h>
 
 #include <map>
@@ -30,7 +31,6 @@ namespace solidity::yul
 
 class NameCollector;
 struct OptimiserStepContext;
-
 
 /**
  * Optimiser component that modifies an AST in place, turning sequences
@@ -91,9 +91,9 @@ private:
 	bool isLatestStatementVarDeclJoinable(Identifier const& _identifier);
 
 private:
-	Block* m_currentBlock = nullptr;		///< Pointer to current block holding the statement being visited.
-	size_t m_latestStatementInBlock = 0;		///< Offset to m_currentBlock's statements of the last visited statement.
-	std::map<YulString, size_t> m_references;	///< Holds reference counts to all variable declarations in current block.
+	Block* m_currentBlock = nullptr;            ///< Pointer to current block holding the statement being visited.
+	size_t m_latestStatementInBlock = 0;        ///< Offset to m_currentBlock's statements of the last visited statement.
+	std::map<YulName, size_t> m_references;   ///< Holds reference counts to all variable declarations in current block.
 };
 
 }

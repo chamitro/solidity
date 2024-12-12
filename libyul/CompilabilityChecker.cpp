@@ -26,54 +26,50 @@
 #include <libyul/backends/evm/EVMCodeTransform.h>
 #include <libyul/backends/evm/NoOutputAssembly.h>
 
-#include <liblangutil/EVMVersion.h>
-
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::util;
 
-map<YulString, int> CompilabilityChecker::run(
-	Dialect const& _dialect,
+CompilabilityChecker::CompilabilityChecker(
 	Object const& _object,
 	bool _optimizeStackAllocation
 )
 {
-	if (EVMDialect const* evmDialect = dynamic_cast<EVMDialect const*>(&_dialect))
+	yulAssert(_object.hasCode());
+	if (auto const* evmDialect = dynamic_cast<EVMDialect const*>(_object.dialect()))
 	{
 		NoOutputEVMDialect noOutputDialect(*evmDialect);
 
-		yul::AsmAnalysisInfo analysisInfo =
-			yul::AsmAnalyzer::analyzeStrictAssertCorrect(noOutputDialect, _object);
+		yul::AsmAnalysisInfo analysisInfo = yul::AsmAnalyzer::analyzeStrictAssertCorrect(
+			noOutputDialect,
+			_object.code()->root(),
+			_object.summarizeStructure()
+		);
 
 		BuiltinContext builtinContext;
 		builtinContext.currentObject = &_object;
-		for (auto name: _object.dataNames())
-			builtinContext.subIDs[name] = 1;
-		NoOutputAssembly assembly;
+		if (!_object.name.empty())
+			builtinContext.subIDs[_object.name] = 1;
+		for (auto const& subNode: _object.subObjects)
+			builtinContext.subIDs[subNode->name] = 1;
+		NoOutputAssembly assembly{evmDialect->evmVersion()};
 		CodeTransform transform(
 			assembly,
 			analysisInfo,
-			*_object.code,
+			_object.code()->root(),
 			noOutputDialect,
 			builtinContext,
 			_optimizeStackAllocation
 		);
-		try
-		{
-			transform(*_object.code);
-		}
-		catch (StackTooDeepError const&)
-		{
-			yulAssert(!transform.stackErrors().empty(), "Got stack too deep exception that was not stored.");
-		}
+		transform(_object.code()->root());
 
-		std::map<YulString, int> functions;
 		for (StackTooDeepError const& error: transform.stackErrors())
-			functions[error.functionName] = max(error.depth, functions[error.functionName]);
-
-		return functions;
+		{
+			auto& unreachables = unreachableVariables[error.functionName];
+			if (!util::contains(unreachables, error.variable))
+				unreachables.emplace_back(error.variable);
+			int& deficit = stackDeficit[error.functionName];
+			deficit = std::max(error.depth, deficit);
+		}
 	}
-	else
-		return {};
 }

@@ -37,6 +37,5 @@ contract Test {
         s.s.z = z;
     }
 }
-
 // ----
 // test() -> 1, 2, 3, 4

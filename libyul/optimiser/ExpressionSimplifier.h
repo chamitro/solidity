@@ -14,25 +14,27 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that uses the simplification rules to simplify expressions.
  */
 
 #pragma once
 
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
 
 #include <libyul/optimiser/DataFlowAnalyzer.h>
 
 namespace solidity::yul
 {
-struct Dialect;
+class Dialect;
 struct OptimiserStepContext;
 
 /**
  * Applies simplification rules to all expressions.
  * The component will work best if the code is in SSA form, but
- * this is not required for correctness.
+ * this is not required for correctness. Using CommonSubexpressionEliminator
+ * also helps this component track equivalent sub-expressions.
  *
  * It tracks the current values of variables using the DataFlowAnalyzer
  * and takes them into account for replacements.
@@ -49,7 +51,10 @@ public:
 	void visit(Expression& _expression) override;
 
 private:
-	explicit ExpressionSimplifier(Dialect const& _dialect): DataFlowAnalyzer(_dialect) {}
+	explicit ExpressionSimplifier(Dialect const& _dialect):
+		DataFlowAnalyzer(_dialect, MemoryAndStorage::Ignore)
+	{}
+	bool knownToBeZero(Expression const& _expression) const;
 };
 
 }

@@ -6,8 +6,5 @@ contract C {
             }
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 45

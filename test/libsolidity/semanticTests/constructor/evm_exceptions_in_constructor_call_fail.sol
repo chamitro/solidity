@@ -1,5 +1,5 @@
 contract A {
-    constructor() public {
+    constructor() {
         address(this).call("123");
     }
 }
@@ -13,9 +13,6 @@ contract B {
         ++test;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // testIt() ->
 // test() -> 2

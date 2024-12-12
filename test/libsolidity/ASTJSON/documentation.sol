@@ -1,15 +1,12 @@
-// ---- SOURCE: a
-
+==== Source: a ====
 /**This contract is empty*/ contract C {}
 
-// ---- SOURCE: b
-
+==== Source: b ====
 /**This contract is empty
  and has a line-breaking comment.*/
 contract C {}
 
-// ---- SOURCE: c
-
+==== Source: c ====
 contract C {
   /** Some comment on state var.*/ uint public state;
   /** Some comment on Evt.*/ event Evt();

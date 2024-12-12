@@ -1,22 +1,25 @@
-pragma experimental SMTChecker;
-
 contract C {
 	struct S {
 		uint[][] arr;
 	}
 	S s1;
 	S s2;
+	constructor() {
+		s1.arr.push();
+		s2.arr.push();
+		s1.arr[0].push();
+		s1.arr[0].push();
+		s1.arr[0].push();
+		s2.arr[0].push();
+		s2.arr[0].push();
+		s2.arr[0].push();
+	}
 	function f() public view {
 		assert(s1.arr[0].length == s2.arr[0].length);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreOS: macos
 // ----
-// Warning 8115: (78-82): Assertion checker does not yet support the type of this variable.
-// Warning 8115: (85-89): Assertion checker does not yet support the type of this variable.
-// Warning 7650: (128-134): Assertion checker does not yet support this expression.
-// Warning 8364: (128-130): Assertion checker does not yet implement type struct C.S storage ref
-// Warning 9118: (128-137): Assertion checker does not yet implement this expression.
-// Warning 7650: (148-154): Assertion checker does not yet support this expression.
-// Warning 8364: (148-150): Assertion checker does not yet implement type struct C.S storage ref
-// Warning 9118: (148-157): Assertion checker does not yet implement this expression.
-// Warning 4661: (121-165): Assertion violation happens here
+// Info 1391: CHC: 9 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

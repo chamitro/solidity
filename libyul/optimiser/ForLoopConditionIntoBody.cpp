@@ -14,13 +14,14 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <libyul/optimiser/ForLoopConditionIntoBody.h>
 #include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/AsmData.h>
+#include <libyul/AST.h>
+
 #include <libsolutil/CommonData.h>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 
@@ -32,33 +33,32 @@ void ForLoopConditionIntoBody::run(OptimiserStepContext& _context, Block& _ast)
 void ForLoopConditionIntoBody::operator()(ForLoop& _forLoop)
 {
 	if (
-		m_dialect.booleanNegationFunction() &&
-		!holds_alternative<Literal>(*_forLoop.condition) &&
-		!holds_alternative<Identifier>(*_forLoop.condition)
+		m_dialect.booleanNegationFunctionHandle() &&
+		!std::holds_alternative<Literal>(*_forLoop.condition) &&
+		!std::holds_alternative<Identifier>(*_forLoop.condition)
 	)
 	{
-		langutil::SourceLocation const loc = locationOf(*_forLoop.condition);
+		langutil::DebugData::ConstPtr debugData = debugDataOf(*_forLoop.condition);
 
 		_forLoop.body.statements.emplace(
 			begin(_forLoop.body.statements),
 			If {
-				loc,
-				make_unique<Expression>(
+				debugData,
+				std::make_unique<Expression>(
 					FunctionCall {
-						loc,
-						{loc, m_dialect.booleanNegationFunction()->name},
+						debugData,
+						BuiltinName{debugData, *m_dialect.booleanNegationFunctionHandle()},
 						util::make_vector<Expression>(std::move(*_forLoop.condition))
 					}
 				),
-				Block {loc, util::make_vector<Statement>(Break{{}})}
+				Block {debugData, util::make_vector<Statement>(Break{{}})}
 			}
 		);
-		_forLoop.condition = make_unique<Expression>(
+		_forLoop.condition = std::make_unique<Expression>(
 			Literal {
-				loc,
+				debugData,
 				LiteralKind::Boolean,
-				"true"_yulstring,
-				m_dialect.boolType
+				LiteralValue{true}
 			}
 		);
 	}

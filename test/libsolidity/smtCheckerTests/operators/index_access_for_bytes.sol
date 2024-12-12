@@ -1,10 +1,13 @@
-pragma experimental SMTChecker;
 contract C {
-    bytes20 x;
-    function f(bytes16 b) public view {
-        b[uint8(x[2])];
+    function f() public pure {
+        bytes memory x = hex"00112233";
+        assert(x[0] == 0x00);
+        assert(x[1] == 0x11);
+        assert(x.length == 3);
     }
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 7989: (116-120): Assertion checker does not yet support index accessing fixed bytes.
-// Warning 7989: (108-122): Assertion checker does not yet support index accessing fixed bytes.
+// Warning 6328: (152-173): CHC: Assertion violation happens here.
+// Info 1391: CHC: 4 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

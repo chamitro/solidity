@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 
 contract C {
@@ -12,6 +12,5 @@ contract C {
         b = s.b;
     }
 }
-
 // ----
 // f((uint256,uint256)): 42, 23 -> 42, 23

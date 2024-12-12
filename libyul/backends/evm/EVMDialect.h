@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Yul dialects for EVM.
  */
@@ -21,20 +22,20 @@
 #pragma once
 
 #include <libyul/Dialect.h>
+#include <libyul/Scope.h>
 
 #include <libyul/backends/evm/AbstractAssembly.h>
-#include <libyul/AsmData.h>
+#include <libyul/ASTForward.h>
 #include <liblangutil/EVMVersion.h>
 
 #include <map>
+#include <set>
 
 namespace solidity::yul
 {
 
-class YulString;
-using Type = YulString;
 struct FunctionCall;
-struct Object;
+class Object;
 
 /**
  * Context used during code generation.
@@ -43,16 +44,19 @@ struct BuiltinContext
 {
 	Object const* currentObject = nullptr;
 	/// Mapping from named objects to abstract assembly sub IDs.
-	std::map<YulString, AbstractAssembly::SubID> subIDs;
+	std::map<std::string, AbstractAssembly::SubID> subIDs;
+
+	std::map<Scope::Function const*, AbstractAssembly::FunctionID> functionIDs;
 };
 
 struct BuiltinFunctionForEVM: public BuiltinFunction
 {
 	std::optional<evmasm::Instruction> instruction;
 	/// Function to generate code for the given function call and append it to the abstract
-	/// assembly. The fourth parameter is called to visit (and generate code for) the given
-	/// argument.
-	std::function<void(FunctionCall const&, AbstractAssembly&, BuiltinContext&, std::function<void(Expression const&)>)> generateCode;
+	/// assembly. Expects all non-literal arguments of the call to be on stack in reverse order
+	/// (i.e. right-most argument pushed first).
+	/// Expects the caller to set the source location.
+	std::function<void(FunctionCall const&, AbstractAssembly&, BuiltinContext&)> generateCode;
 };
 
 
@@ -61,53 +65,78 @@ struct BuiltinFunctionForEVM: public BuiltinFunction
  * The main difference is that the builtin functions take an AbstractAssembly for the
  * code generation.
  */
-struct EVMDialect: public Dialect
+class EVMDialect: public Dialect
 {
+public:
+	/// Handles to (depending on dialect, potentially existing) builtins, which are not accessible via the
+	/// `...FunctionHandle` functions of `Dialect` and of which it is statically known, that they are needed in,
+	/// e.g., certain optimization steps.
+	struct AuxiliaryBuiltinHandles
+	{
+		std::optional<BuiltinHandle> add;
+		std::optional<BuiltinHandle> exp;
+		std::optional<BuiltinHandle> mul;
+		std::optional<BuiltinHandle> not_;
+		std::optional<BuiltinHandle> shl;
+		std::optional<BuiltinHandle> sub;
+	};
 	/// Constructor, should only be used internally. Use the factory functions below.
-	EVMDialect(langutil::EVMVersion _evmVersion, bool _objectAccess);
+	EVMDialect(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion, bool _objectAccess);
 
-	/// @returns the builtin function of the given name or a nullptr if it is not a builtin function.
-	BuiltinFunctionForEVM const* builtin(YulString _name) const override;
+	std::optional<BuiltinHandle> findBuiltin(std::string_view _name) const override;
 
-	BuiltinFunctionForEVM const* discardFunction(YulString /*_type*/) const override { return builtin("pop"_yulstring); }
-	BuiltinFunctionForEVM const* equalityFunction(YulString /*_type*/) const override { return builtin("eq"_yulstring); }
-	BuiltinFunctionForEVM const* booleanNegationFunction() const override { return builtin("iszero"_yulstring); }
+	BuiltinFunctionForEVM const& builtin(BuiltinHandle const& _handle) const override;
 
-	static EVMDialect const& strictAssemblyForEVM(langutil::EVMVersion _version);
-	static EVMDialect const& strictAssemblyForEVMObjects(langutil::EVMVersion _version);
+	bool reservedIdentifier(std::string_view _name) const override;
+
+	std::optional<BuiltinHandle> discardFunctionHandle() const override { return m_discardFunction; }
+	std::optional<BuiltinHandle> equalityFunctionHandle() const override { return m_equalityFunction; }
+	std::optional<BuiltinHandle> booleanNegationFunctionHandle() const override { return m_booleanNegationFunction; }
+	std::optional<BuiltinHandle> memoryStoreFunctionHandle() const override { return m_memoryStoreFunction; }
+	std::optional<BuiltinHandle> memoryLoadFunctionHandle() const override { return m_memoryLoadFunction; }
+	std::optional<BuiltinHandle> storageStoreFunctionHandle() const override { return m_storageStoreFunction; }
+	std::optional<BuiltinHandle> storageLoadFunctionHandle() const override { return m_storageLoadFunction; }
+	std::optional<BuiltinHandle> hashFunctionHandle() const override { return m_hashFunction; }
+	AuxiliaryBuiltinHandles const& auxiliaryBuiltinHandles() const { return m_auxiliaryBuiltinHandles; }
+
+	static EVMDialect const& strictAssemblyForEVM(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion);
+	static EVMDialect const& strictAssemblyForEVMObjects(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion);
 
 	langutil::EVMVersion evmVersion() const { return m_evmVersion; }
+	std::optional<uint8_t> eofVersion() const { return m_eofVersion; }
 
 	bool providesObjectAccess() const { return m_objectAccess; }
 
 	static SideEffects sideEffectsOfInstruction(evmasm::Instruction _instruction);
 
+	static size_t constexpr verbatimMaxInputSlots = 100;
+	static size_t constexpr verbatimMaxOutputSlots = 100;
+
 protected:
+	static bool constexpr isVerbatimHandle(BuiltinHandle const& _handle) { return _handle.id < verbatimIDOffset; }
+	static BuiltinFunctionForEVM createVerbatimFunctionFromHandle(BuiltinHandle const& _handle);
+	static BuiltinFunctionForEVM createVerbatimFunction(size_t _arguments, size_t _returnVariables);
+	BuiltinHandle verbatimFunction(size_t _arguments, size_t _returnVariables) const;
+
+	static size_t constexpr verbatimIDOffset = verbatimMaxInputSlots * verbatimMaxOutputSlots;
+
 	bool const m_objectAccess;
 	langutil::EVMVersion const m_evmVersion;
-	std::map<YulString, BuiltinFunctionForEVM> m_functions;
-};
+	std::optional<uint8_t> m_eofVersion;
+	std::unordered_map<std::string_view, BuiltinHandle> m_builtinFunctionsByName;
+	std::vector<std::optional<BuiltinFunctionForEVM>> m_functions;
+	std::array<std::unique_ptr<BuiltinFunctionForEVM>, verbatimIDOffset> mutable m_verbatimFunctions{};
+	std::set<std::string, std::less<>> m_reserved;
 
-/**
- * EVM dialect with types u256 (default) and bool.
- * Difference to EVMDialect:
- *  - All comparison functions return type bool
- *  - bitwise operations are called bitor, bitand, bitxor and bitnot
- *  - and, or, xor take bool and return bool
- *  - iszero is replaced by not, which takes bool and returns bool
- *  - there are conversion functions bool_to_u256 and u256_to_bool.
- *  - there is popbool
- */
-struct EVMDialectTyped: public EVMDialect
-{
-	/// Constructor, should only be used internally. Use the factory function below.
-	EVMDialectTyped(langutil::EVMVersion _evmVersion, bool _objectAccess);
-
-	BuiltinFunctionForEVM const* discardFunction(YulString _type) const override;
-	BuiltinFunctionForEVM const* equalityFunction(YulString _type) const override;
-	BuiltinFunctionForEVM const* booleanNegationFunction() const override { return builtin("not"_yulstring); }
-
-	static EVMDialectTyped const& instance(langutil::EVMVersion _version);
+	std::optional<BuiltinHandle> m_discardFunction;
+	std::optional<BuiltinHandle> m_equalityFunction;
+	std::optional<BuiltinHandle> m_booleanNegationFunction;
+	std::optional<BuiltinHandle> m_memoryStoreFunction;
+	std::optional<BuiltinHandle> m_memoryLoadFunction;
+	std::optional<BuiltinHandle> m_storageStoreFunction;
+	std::optional<BuiltinHandle> m_storageLoadFunction;
+	std::optional<BuiltinHandle> m_hashFunction;
+	AuxiliaryBuiltinHandles m_auxiliaryBuiltinHandles;
 };
 
 }

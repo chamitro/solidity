@@ -9,7 +9,6 @@ contract C {
         return a;
     }
 }
-
 // ----
 // f(uint256): 3 -> 10
 // a() -> 10

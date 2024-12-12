@@ -11,8 +11,6 @@ contract C {
         return 7;
     }
 }
-// ====
-// compileViaYul: also
 // ----
-// intern() -> FAILURE # This should throw exceptions #
+// intern() -> FAILURE, hex"4e487b71", 0x51 # This should throw exceptions #
 // extern() -> FAILURE

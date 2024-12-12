@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	function f(bytes32 _x) public pure {
 		require(_x == "test");
@@ -10,5 +8,8 @@ contract C {
 		assert(_x == z);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4661: (186-201): Assertion violation happens here
+// Warning 6328: (153-168): CHC: Assertion violation happens here.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

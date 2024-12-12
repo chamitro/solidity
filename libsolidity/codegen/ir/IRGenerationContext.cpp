@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Class that contains contextual information during IR generation.
  */
@@ -29,19 +30,19 @@
 #include <libsolutil/Whiskers.h>
 #include <libsolutil/StringUtils.h>
 
-#include <boost/range/adaptor/map.hpp>
+#include <range/v3/view/map.hpp>
+#include <range/v3/algorithm/find.hpp>
 
-using namespace std;
 using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::frontend;
 
-string IRGenerationContext::enqueueFunctionForCodeGeneration(FunctionDefinition const& _function)
+std::string IRGenerationContext::enqueueFunctionForCodeGeneration(FunctionDefinition const& _function)
 {
-	string name = IRNames::function(_function);
+	std::string name = IRNames::function(_function);
 
 	if (!m_functions.contains(name))
-		m_functionGenerationQueue.insert(&_function);
+		m_functionGenerationQueue.push_back(&_function);
 
 	return name;
 }
@@ -50,8 +51,8 @@ FunctionDefinition const* IRGenerationContext::dequeueFunctionForCodeGeneration(
 {
 	solAssert(!m_functionGenerationQueue.empty(), "");
 
-	FunctionDefinition const* result = *m_functionGenerationQueue.begin();
-	m_functionGenerationQueue.erase(m_functionGenerationQueue.begin());
+	FunctionDefinition const* result = m_functionGenerationQueue.front();
+	m_functionGenerationQueue.pop_front();
 	return result;
 }
 
@@ -79,8 +80,14 @@ IRVariable const& IRGenerationContext::localVariable(VariableDeclaration const& 
 	return m_localVariables.at(&_varDecl);
 }
 
+void IRGenerationContext::resetLocalVariables()
+{
+	m_localVariables.clear();
+}
+
 void IRGenerationContext::registerImmutableVariable(VariableDeclaration const& _variable)
 {
+	solAssert(m_executionContext != ExecutionContext::Deployed);
 	solAssert(_variable.immutable(), "Attempted to register a non-immutable variable as immutable.");
 	solUnimplementedAssert(
 		_variable.annotation().type->isValueType(),
@@ -101,10 +108,64 @@ size_t IRGenerationContext::immutableMemoryOffset(VariableDeclaration const& _va
 	return m_immutableVariables.at(&_variable);
 }
 
+size_t IRGenerationContext::immutableMemoryOffsetRelative(VariableDeclaration const& _variable) const
+{
+	auto const absoluteOffset = immutableMemoryOffset(_variable);
+	solAssert(absoluteOffset >= CompilerUtils::generalPurposeMemoryStart);
+	return absoluteOffset - CompilerUtils::generalPurposeMemoryStart;
+}
+
+size_t IRGenerationContext::reservedMemorySize() const
+{
+	solAssert(m_reservedMemory.has_value());
+	return *m_reservedMemory;
+}
+
+void IRGenerationContext::registerLibraryAddressImmutable()
+{
+	solAssert(m_executionContext != ExecutionContext::Deployed);
+	solAssert(m_reservedMemory.has_value(), "Reserved memory has already been reset.");
+	solAssert(!m_libraryAddressImmutableOffset.has_value());
+	m_libraryAddressImmutableOffset = CompilerUtils::generalPurposeMemoryStart + *m_reservedMemory;
+	*m_reservedMemory += 32;
+}
+
+size_t IRGenerationContext::libraryAddressImmutableOffset() const
+{
+	solAssert(m_libraryAddressImmutableOffset.has_value());
+	return *m_libraryAddressImmutableOffset;
+}
+
+size_t IRGenerationContext::libraryAddressImmutableOffsetRelative() const
+{
+	solAssert(m_libraryAddressImmutableOffset.has_value());
+	solAssert(m_libraryAddressImmutableOffset >= CompilerUtils::generalPurposeMemoryStart);
+	return *m_libraryAddressImmutableOffset - CompilerUtils::generalPurposeMemoryStart;
+}
+
 size_t IRGenerationContext::reservedMemory()
 {
 	solAssert(m_reservedMemory.has_value(), "Reserved memory was used before.");
 	size_t reservedMemory = *m_reservedMemory;
+
+	// We assume reserved memory contains only immutable variables.
+	// This memory is used i.e. by RETURNCONTRACT to create new EOF container with aux data.
+	size_t immutableVariablesSize = 0;
+	for (auto const* var: keys(m_immutableVariables))
+	{
+		solUnimplementedAssert(var->type()->isValueType());
+		solUnimplementedAssert(var->type()->sizeOnStack() == 1);
+		immutableVariablesSize += var->type()->sizeOnStack() * 32;
+	}
+
+	// In Creation context check that only immutable variables or library address are stored in the reserved memory.
+	// In Deployed context (for EOF) m_immutableVariables contains offsets in EOF data section.
+	solAssert(
+		(m_executionContext == ExecutionContext::Creation &&
+			reservedMemory == immutableVariablesSize + (m_libraryAddressImmutableOffset.has_value() ? 32 : 0)) ||
+		(m_executionContext == ExecutionContext::Deployed && reservedMemory == 0)
+	);
+
 	m_reservedMemory = std::nullopt;
 	return reservedMemory;
 }
@@ -115,59 +176,46 @@ void IRGenerationContext::addStateVariable(
 	unsigned _byteOffset
 )
 {
-	m_stateVariables[&_declaration] = make_pair(move(_storageOffset), _byteOffset);
+	m_stateVariables[&_declaration] = std::make_pair(std::move(_storageOffset), _byteOffset);
 }
 
-string IRGenerationContext::newYulVariable()
+std::string IRGenerationContext::newYulVariable()
 {
-	return "_" + to_string(++m_varCounter);
+	return "_" + std::to_string(++m_varCounter);
 }
 
 void IRGenerationContext::initializeInternalDispatch(InternalDispatchMap _internalDispatch)
 {
 	solAssert(internalDispatchClean(), "");
 
-	for (set<FunctionDefinition const*> const& functions: _internalDispatch | boost::adaptors::map_values)
+	for (DispatchQueue const& functions: _internalDispatch | ranges::views::values)
 		for (auto function: functions)
 			enqueueFunctionForCodeGeneration(*function);
 
-	m_internalDispatchMap = move(_internalDispatch);
+	m_internalDispatchMap = std::move(_internalDispatch);
 }
 
 InternalDispatchMap IRGenerationContext::consumeInternalDispatchMap()
 {
-	m_directInternalFunctionCalls.clear();
-
-	InternalDispatchMap internalDispatch = move(m_internalDispatchMap);
+	InternalDispatchMap internalDispatch = std::move(m_internalDispatchMap);
 	m_internalDispatchMap.clear();
 	return internalDispatch;
 }
 
-void IRGenerationContext::internalFunctionCalledDirectly(Expression const& _expression)
+void IRGenerationContext::addToInternalDispatch(FunctionDefinition const& _function)
 {
-	solAssert(m_directInternalFunctionCalls.count(&_expression) == 0, "");
+	FunctionType const* functionType = TypeProvider::function(_function, FunctionType::Kind::Internal);
+	solAssert(functionType);
 
-	m_directInternalFunctionCalls.insert(&_expression);
-}
-
-void IRGenerationContext::internalFunctionAccessed(Expression const& _expression, FunctionDefinition const& _function)
-{
-	solAssert(
-		IRHelpers::referencedFunctionDeclaration(_expression) &&
-		_function.resolveVirtual(mostDerivedContract()) ==
-		IRHelpers::referencedFunctionDeclaration(_expression)->resolveVirtual(mostDerivedContract()),
-		"Function definition does not match the expression"
-	);
-
-	if (m_directInternalFunctionCalls.count(&_expression) == 0)
+	YulArity arity = YulArity::fromType(*functionType);
+	DispatchQueue& dispatchQueue = m_internalDispatchMap[arity];
+	if (ranges::find(dispatchQueue, &_function) == ranges::end(dispatchQueue))
 	{
-		FunctionType const* functionType = TypeProvider::function(_function, FunctionType::Kind::Internal);
-		solAssert(functionType, "");
-
-		m_internalDispatchMap[YulArity::fromType(*functionType)].insert(&_function);
+		dispatchQueue.push_back(&_function);
 		enqueueFunctionForCodeGeneration(_function);
 	}
 }
+
 
 void IRGenerationContext::internalFunctionCalledThroughDispatch(YulArity const& _arity)
 {
@@ -182,9 +230,4 @@ YulUtilFunctions IRGenerationContext::utils()
 ABIFunctions IRGenerationContext::abiFunctions()
 {
 	return ABIFunctions(m_evmVersion, m_revertStrings, m_functions);
-}
-
-std::string IRGenerationContext::revertReasonIfDebug(std::string const& _message)
-{
-	return YulUtilFunctions::revertReasonIfDebug(m_revertStrings, _message);
 }

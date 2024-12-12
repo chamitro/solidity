@@ -14,9 +14,6 @@ contract B is A {
         return f();
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 2
 // g() -> 2

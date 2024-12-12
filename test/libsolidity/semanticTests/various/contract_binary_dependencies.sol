@@ -15,8 +15,6 @@ contract C {
         new B();
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // constructor() ->
+// gas irOptimized: 100415

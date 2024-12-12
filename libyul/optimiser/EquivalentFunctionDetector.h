@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that combines syntactically equivalent functions.
  */
@@ -21,7 +22,7 @@
 
 #include <libyul/optimiser/ASTWalker.h>
 #include <libyul/optimiser/BlockHasher.h>
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
 
 namespace solidity::yul
 {
@@ -34,7 +35,7 @@ namespace solidity::yul
 class EquivalentFunctionDetector: public ASTWalker
 {
 public:
-	static std::map<YulString, FunctionDefinition const*> run(Block& _block)
+	static std::map<YulName, FunctionDefinition const*> run(Block& _block)
 	{
 		EquivalentFunctionDetector detector{BlockHasher::run(_block)};
 		detector(_block);
@@ -49,7 +50,7 @@ private:
 
 	std::map<Block const*, uint64_t> m_blockHashes;
 	std::map<uint64_t, std::vector<FunctionDefinition const*>> m_candidates;
-	std::map<YulString, FunctionDefinition const*> m_duplicates;
+	std::map<YulName, FunctionDefinition const*> m_duplicates;
 };
 
 

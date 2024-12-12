@@ -15,7 +15,8 @@ contract c {
         return 0;
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // test() -> 0
+// gas irOptimized: 122717
+// gas legacy: 147108
+// gas legacyOptimized: 144200

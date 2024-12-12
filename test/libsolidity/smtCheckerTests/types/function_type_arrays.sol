@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract C {
     function(uint) external returns (uint)[] public x;
     function(uint) internal returns (uint)[10] y;
@@ -7,8 +6,11 @@ contract C {
         function(uint) returns (uint)[10] storage b = y;
         function(uint) external returns (uint)[] memory c;
         c = new function(uint) external returns (uint)[](200);
+        assert(c.length == 200);
         a; b;
     }
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4588: (361-410): Assertion checker does not yet implement this type of function call.
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

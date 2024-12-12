@@ -14,29 +14,46 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Assembly interface that ignores everything. Can be used as a backend for a compilation dry-run.
  */
 
 #include <libyul/backends/evm/NoOutputAssembly.h>
 
+#include <libyul/AST.h>
 #include <libyul/Exceptions.h>
 
 #include <libevmasm/Instruction.h>
 
-#include <boost/range/adaptor/reversed.hpp>
+#include <range/v3/view/iota.hpp>
 
-
-using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::util;
 using namespace solidity::langutil;
 
+namespace
+{
+
+void modifyBuiltinToNoOutput(BuiltinFunctionForEVM& _builtin)
+{
+	_builtin.generateCode = [_builtin](FunctionCall const& _call, AbstractAssembly& _assembly, BuiltinContext&)
+	{
+		for (size_t i: ranges::views::iota(0u, _call.arguments.size()))
+			if (!_builtin.literalArgument(i))
+				_assembly.appendInstruction(evmasm::Instruction::POP);
+
+		for (size_t i = 0; i < _builtin.numReturns; i++)
+			_assembly.appendConstant(u256(0));
+	};
+}
+
+}
 
 void NoOutputAssembly::appendInstruction(evmasm::Instruction _instr)
 {
-	m_stackHeight += instructionInfo(_instr).ret - instructionInfo(_instr).args;
+	m_stackHeight += instructionInfo(_instr, m_evmVersion).ret - instructionInfo(_instr, m_evmVersion).args;
 }
 
 void NoOutputAssembly::appendConstant(u256 const&)
@@ -51,7 +68,6 @@ void NoOutputAssembly::appendLabel(LabelID)
 
 void NoOutputAssembly::appendLabelReference(LabelID)
 {
-	yulAssert(!m_evm15, "Cannot use plain label references in EMV1.5 mode.");
 	appendInstruction(evmasm::pushInstruction(1));
 }
 
@@ -60,64 +76,37 @@ NoOutputAssembly::LabelID NoOutputAssembly::newLabelId()
 	return 1;
 }
 
-AbstractAssembly::LabelID NoOutputAssembly::namedLabel(string const&)
+AbstractAssembly::LabelID NoOutputAssembly::namedLabel(std::string const&, size_t, size_t, std::optional<size_t>)
 {
 	return 1;
 }
 
-void NoOutputAssembly::appendLinkerSymbol(string const&)
+void NoOutputAssembly::appendLinkerSymbol(std::string const&)
 {
 	yulAssert(false, "Linker symbols not yet implemented.");
 }
 
-void NoOutputAssembly::appendJump(int _stackDiffAfter)
+void NoOutputAssembly::appendVerbatim(bytes, size_t _arguments, size_t _returnVariables)
 {
-	yulAssert(!m_evm15, "Plain JUMP used for EVM 1.5");
+	m_stackHeight += static_cast<int>(_returnVariables) - static_cast<int>(_arguments);
+}
+
+void NoOutputAssembly::appendJump(int _stackDiffAfter, JumpType)
+{
 	appendInstruction(evmasm::Instruction::JUMP);
 	m_stackHeight += _stackDiffAfter;
 }
 
-void NoOutputAssembly::appendJumpTo(LabelID _labelId, int _stackDiffAfter)
+void NoOutputAssembly::appendJumpTo(LabelID _labelId, int _stackDiffAfter, JumpType _jumpType)
 {
-	if (m_evm15)
-		m_stackHeight += _stackDiffAfter;
-	else
-	{
-		appendLabelReference(_labelId);
-		appendJump(_stackDiffAfter);
-	}
+	appendLabelReference(_labelId);
+	appendJump(_stackDiffAfter, _jumpType);
 }
 
-void NoOutputAssembly::appendJumpToIf(LabelID _labelId)
+void NoOutputAssembly::appendJumpToIf(LabelID _labelId, JumpType)
 {
-	if (m_evm15)
-		m_stackHeight--;
-	else
-	{
-		appendLabelReference(_labelId);
-		appendInstruction(evmasm::Instruction::JUMPI);
-	}
-}
-
-void NoOutputAssembly::appendBeginsub(LabelID, int _arguments)
-{
-	yulAssert(m_evm15, "BEGINSUB used for EVM 1.0");
-	yulAssert(_arguments >= 0, "");
-	m_stackHeight += _arguments;
-}
-
-void NoOutputAssembly::appendJumpsub(LabelID, int _arguments, int _returns)
-{
-	yulAssert(m_evm15, "JUMPSUB used for EVM 1.0");
-	yulAssert(_arguments >= 0 && _returns >= 0, "");
-	m_stackHeight += _returns - _arguments;
-}
-
-void NoOutputAssembly::appendReturnsub(int _returns, int _stackDiffAfter)
-{
-	yulAssert(m_evm15, "RETURNSUB used for EVM 1.0");
-	yulAssert(_returns >= 0, "");
-	m_stackHeight += _stackDiffAfter - _returns;
+	appendLabelReference(_labelId);
+	appendInstruction(evmasm::Instruction::JUMPI);
 }
 
 void NoOutputAssembly::appendAssemblySize()
@@ -125,18 +114,55 @@ void NoOutputAssembly::appendAssemblySize()
 	appendInstruction(evmasm::Instruction::PUSH1);
 }
 
-pair<shared_ptr<AbstractAssembly>, AbstractAssembly::SubID> NoOutputAssembly::createSubAssembly()
+std::pair<std::shared_ptr<AbstractAssembly>, AbstractAssembly::SubID> NoOutputAssembly::createSubAssembly(bool, std::string)
 {
 	yulAssert(false, "Sub assemblies not implemented.");
 	return {};
 }
 
-void NoOutputAssembly::appendDataOffset(AbstractAssembly::SubID)
+AbstractAssembly::FunctionID NoOutputAssembly::registerFunction(uint8_t _args, uint8_t _rets)
+{
+	yulAssert(m_context.numFunctions <= std::numeric_limits<AbstractAssembly::FunctionID>::max());
+	AbstractAssembly::FunctionID id = static_cast<AbstractAssembly::FunctionID>(m_context.numFunctions++);
+	m_context.functionSignatures[id] = std::make_pair(_args, _rets);
+	return id;
+}
+
+void NoOutputAssembly::beginFunction(FunctionID _functionID)
+{
+	yulAssert(m_currentFunctionID == 0, "Attempted to begin a function before ending the last one.");
+	yulAssert(m_context.functionSignatures.count(_functionID) == 1, "Filling unregistered function.");
+	yulAssert(m_stackHeight == 0, "Non-empty stack on beginFunction call.");
+	m_currentFunctionID = _functionID;
+}
+
+void NoOutputAssembly::endFunction()
+{
+	yulAssert(m_currentFunctionID != 0, "End function without begin function.");
+	auto const rets = m_context.functionSignatures.at(m_currentFunctionID).second;
+	yulAssert(rets == 0x80 || m_stackHeight == rets, "Stack height mismatch at function end.");
+	m_currentFunctionID = 0;
+}
+
+void NoOutputAssembly::appendFunctionCall(FunctionID _functionID)
+{
+	auto [args, rets] = m_context.functionSignatures.at(_functionID);
+	m_stackHeight += static_cast<int>(rets) - static_cast<int>(args);
+}
+
+void NoOutputAssembly::appendFunctionReturn()
+{
+	yulAssert(m_currentFunctionID != 0, "End function without begin function.");
+	auto const rets = m_context.functionSignatures.at(m_currentFunctionID).second;
+	yulAssert(rets == 0x80 || m_stackHeight == rets, "Stack height mismatch at function end.");
+}
+
+void NoOutputAssembly::appendDataOffset(std::vector<AbstractAssembly::SubID> const&)
 {
 	appendInstruction(evmasm::Instruction::PUSH1);
 }
 
-void NoOutputAssembly::appendDataSize(AbstractAssembly::SubID)
+void NoOutputAssembly::appendDataSize(std::vector<AbstractAssembly::SubID> const&)
 {
 	appendInstruction(evmasm::Instruction::PUSH1);
 }
@@ -157,23 +183,40 @@ void NoOutputAssembly::appendImmutableAssignment(std::string const&)
 	yulAssert(false, "setimmutable not implemented.");
 }
 
+void NoOutputAssembly::appendAuxDataLoadN(uint16_t)
+{
+	yulAssert(false, "auxdataloadn not implemented.");
+}
+
+void NoOutputAssembly::appendEOFCreate(ContainerID)
+{
+	yulAssert(false, "eofcreate not implemented.");
+
+}
+void NoOutputAssembly::appendReturnContract(ContainerID)
+{
+	yulAssert(false, "returncontract not implemented.");
+}
+
 NoOutputEVMDialect::NoOutputEVMDialect(EVMDialect const& _copyFrom):
-	EVMDialect(_copyFrom.evmVersion(), _copyFrom.providesObjectAccess())
+	EVMDialect(_copyFrom.evmVersion(), _copyFrom.eofVersion(), _copyFrom.providesObjectAccess())
 {
 	for (auto& fun: m_functions)
-	{
-		size_t parameters = fun.second.parameters.size();
-		size_t returns = fun.second.returns.size();
-		fun.second.generateCode = [=](FunctionCall const& _call, AbstractAssembly& _assembly, BuiltinContext&, std::function<void(Expression const&)> _visitExpression)
+		if (fun)
+			modifyBuiltinToNoOutput(*fun);
+}
+
+BuiltinFunctionForEVM const& NoOutputEVMDialect::builtin(BuiltinHandle const& _handle) const
+{
+	if (isVerbatimHandle(_handle))
+		// for verbatims the modification is performed lazily as they are stored in a lookup table fashion
+		if (
+			auto& builtin = m_verbatimFunctions[_handle.id];
+			!builtin
+		)
 		{
-			for (auto const& arg: _call.arguments | boost::adaptors::reversed)
-				_visitExpression(arg);
-
-			for (size_t i = 0; i < parameters; i++)
-				_assembly.appendInstruction(evmasm::Instruction::POP);
-
-			for (size_t i = 0; i < returns; i++)
-				_assembly.appendConstant(u256(0));
-		};
-	}
+			builtin = std::make_unique<BuiltinFunctionForEVM>(createVerbatimFunctionFromHandle(_handle));
+			modifyBuiltinToNoOutput(*builtin);
+		}
+	return EVMDialect::builtin(_handle);
 }

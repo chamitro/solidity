@@ -8,11 +8,9 @@ contract A {
 }
 contract B is A {
     uint public z;
-    constructor() public {
+    constructor() {
         z = x;
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // z() -> 1

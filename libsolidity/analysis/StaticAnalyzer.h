@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Federico Bond <federicobond@gmail.com>
  * @date 2016
@@ -64,6 +65,7 @@ private:
 	bool visit(FunctionDefinition const& _function) override;
 	void endVisit(FunctionDefinition const& _function) override;
 
+	bool visit(Assignment const& _assignment) override;
 	bool visit(ExpressionStatement const& _statement) override;
 	bool visit(VariableDeclaration const& _variable) override;
 	bool visit(Identifier const& _identifier) override;
@@ -73,8 +75,9 @@ private:
 	bool visit(BinaryOperation const& _operation) override;
 	bool visit(FunctionCall const& _functionCall) override;
 
-	/// @returns the size of this type in storage, including all sub-types.
-	static bigint structureSizeEstimate(Type const& _type, std::set<StructDefinition const*>& _structsSeen);
+	/// Checks (and warns) if a tuple assignment might cause unexpected overwrites in storage.
+	/// Should only be called if the left hand side is tuple-typed.
+	void checkDoubleStorageAssignment(Assignment const& _assignment);
 
 	langutil::ErrorReporter& m_errorReporter;
 

@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /** @file Assembly.h
  * @author Gav Wood <i@gavwood.com>
  * @date 2014
@@ -33,6 +34,7 @@ namespace solidity::evmasm
  */
 struct LinkerObject
 {
+	using ImmutableRefs = std::pair<std::string, std::vector<size_t>>;
 	/// The bytecode.
 	bytes bytecode;
 
@@ -42,7 +44,19 @@ struct LinkerObject
 
 	/// Map from hashes of the identifiers of immutable variables to the full identifier of the immutable and
 	/// to a list of offsets into the bytecode that refer to their values.
-	std::map<u256, std::pair<std::string, std::vector<size_t>>> immutableReferences;
+	std::map<u256, ImmutableRefs> immutableReferences;
+
+	struct FunctionDebugData
+	{
+		std::optional<size_t> bytecodeOffset;
+		std::optional<size_t> instructionIndex;
+		std::optional<size_t> sourceID;
+		size_t params = {};
+		size_t returns = {};
+	};
+
+	/// Bytecode offsets of named tags like function entry points.
+	std::map<std::string, FunctionDebugData> functionDebugData;
 
 	/// Appends the bytecode of @a _other and incorporates its link references.
 	void append(LinkerObject const& _other);
@@ -58,6 +72,8 @@ struct LinkerObject
 	/// address (enclosed by `__` on both sides). The placeholder is the hex representation
 	/// of the first 18 bytes of the keccak-256 hash of @a _libraryName.
 	static std::string libraryPlaceholder(std::string const& _libraryName);
+
+	bool operator<(LinkerObject const& _other) const;
 
 private:
 	static util::h160 const* matchLibrary(

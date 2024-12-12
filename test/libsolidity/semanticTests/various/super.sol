@@ -24,6 +24,5 @@ contract D is B, C {
         return super.f() | 8;
     }
 }
-
 // ----
 // f() -> 15

@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 #pragma once
 
 #include <string>
@@ -29,9 +30,9 @@ namespace solidity::util
 ///
 /// Result<bool> check()
 /// {
-///		if (false)
-///			return Result<bool>::err("Error message.")
-///		return true;
+///     if (false)
+///         return Result<bool>::err("Error message.")
+///     return true;
 /// }
 ///
 

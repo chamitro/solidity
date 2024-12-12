@@ -8,8 +8,5 @@ contract C {
         return x;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // test() -> 0x20, 0x5, "12345"

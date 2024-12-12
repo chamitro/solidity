@@ -1,3 +1,3 @@
-contract C { function f() { var x = 2; x++; } }
+contract C { function f() public { uint x = 2; x++; } }
 
 // ----

@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	struct S { uint x; }
 
@@ -9,15 +7,13 @@ contract C {
 	function f(uint a) public pure {
 		uint x;
 		S memory y;
-		if (a > 100)
+		if (a > 100) {
 			(x, y) = g();
+			assert(y.x == 3);
+		 }
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 8115: (112-120): Assertion checker does not yet support the type of this variable.
-// Warning 8364: (137-138): Assertion checker does not yet implement type type(struct C.S storage pointer)
-// Warning 8364: (137-141): Assertion checker does not yet implement type struct C.S memory
-// Warning 4639: (137-141): Assertion checker does not yet implement this expression.
-// Warning 8115: (193-203): Assertion checker does not yet support the type of this variable.
-// Warning 4639: (137-141): Assertion checker does not yet implement this expression.
-// Warning 6191: (227-228): Assertion checker does not yet implement type struct C.S memory
+// Info 1391: CHC: 1 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

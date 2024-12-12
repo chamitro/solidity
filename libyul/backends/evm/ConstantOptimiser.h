@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimisation stage that replaces constants by expressions that compute them.
  */
@@ -21,12 +22,12 @@
 #pragma once
 
 #include <libyul/optimiser/ASTWalker.h>
-#include <libyul/YulString.h>
+#include <libyul/YulName.h>
 #include <libyul/Dialect.h>
 #include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/AsmData.h>
+#include <libyul/ASTForward.h>
 
-#include <liblangutil/SourceLocation.h>
+#include <liblangutil/DebugData.h>
 
 #include <libsolutil/Common.h>
 
@@ -36,7 +37,7 @@
 
 namespace solidity::yul
 {
-struct Dialect;
+class Dialect;
 class GasMeter;
 
 /**
@@ -57,7 +58,7 @@ public:
 	struct Representation
 	{
 		std::unique_ptr<Expression> expression;
-		size_t cost = size_t(-1);
+		bigint cost;
 	};
 
 private:
@@ -73,12 +74,12 @@ public:
 	RepresentationFinder(
 		EVMDialect const& _dialect,
 		GasMeter const& _meter,
-		langutil::SourceLocation _location,
+		langutil::DebugData::ConstPtr _debugData,
 		std::map<u256, Representation>& _cache
 	):
 		m_dialect(_dialect),
 		m_meter(_meter),
-		m_location(std::move(_location)),
+		m_debugData(std::move(_debugData)),
 		m_cache(_cache)
 	{}
 
@@ -92,14 +93,14 @@ private:
 	Representation const& findRepresentation(u256 const& _value);
 
 	Representation represent(u256 const& _value) const;
-	Representation represent(YulString _instruction, Representation const& _arg) const;
-	Representation represent(YulString _instruction, Representation const& _arg1, Representation const& _arg2) const;
+	Representation represent(BuiltinHandle const& _instruction, Representation const& _arg) const;
+	Representation represent(BuiltinHandle const& _instruction, Representation const& _arg1, Representation const& _arg2) const;
 
 	Representation min(Representation _a, Representation _b);
 
 	EVMDialect const& m_dialect;
 	GasMeter const& m_meter;
-	langutil::SourceLocation m_location;
+	langutil::DebugData::ConstPtr m_debugData;
 	/// Counter for the complexity of optimization, will stop when it reaches zero.
 	size_t m_maxSteps = 10000;
 	std::map<u256, Representation>& m_cache;

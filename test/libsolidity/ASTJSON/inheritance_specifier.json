@@ -1,82 +1,72 @@
 {
   "absolutePath": "a",
-  "exportedSymbols":
-  {
-    "C1":
-    [
+  "exportedSymbols": {
+    "C1": [
       1
     ],
-    "C2":
-    [
+    "C2": [
       4
     ]
   },
   "id": 5,
-  "license": null,
   "nodeType": "SourceUnit",
-  "nodes":
-  [
+  "nodes": [
     {
       "abstract": false,
       "baseContracts": [],
+      "canonicalName": "C1",
       "contractDependencies": [],
       "contractKind": "contract",
-      "documentation": null,
       "fullyImplemented": true,
       "id": 1,
-      "linearizedBaseContracts":
-      [
+      "linearizedBaseContracts": [
         1
       ],
       "name": "C1",
+      "nameLocation": "9:2:1",
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 5,
-      "src": "0:14:1"
+      "src": "0:14:1",
+      "usedErrors": [],
+      "usedEvents": []
     },
     {
       "abstract": false,
-      "baseContracts":
-      [
+      "baseContracts": [
         {
-          "arguments": null,
-          "baseName":
-          {
-            "contractScope": null,
+          "baseName": {
             "id": 2,
             "name": "C1",
-            "nodeType": "UserDefinedTypeName",
+            "nameLocations": [
+              "30:2:1"
+            ],
+            "nodeType": "IdentifierPath",
             "referencedDeclaration": 1,
-            "src": "30:2:1",
-            "typeDescriptions":
-            {
-              "typeIdentifier": "t_contract$_C1_$1",
-              "typeString": "contract C1"
-            }
+            "src": "30:2:1"
           },
           "id": 3,
           "nodeType": "InheritanceSpecifier",
           "src": "30:2:1"
         }
       ],
-      "contractDependencies":
-      [
-        1
-      ],
+      "canonicalName": "C2",
+      "contractDependencies": [],
       "contractKind": "contract",
-      "documentation": null,
       "fullyImplemented": true,
       "id": 4,
-      "linearizedBaseContracts":
-      [
+      "linearizedBaseContracts": [
         4,
         1
       ],
       "name": "C2",
+      "nameLocation": "24:2:1",
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 5,
-      "src": "15:20:1"
+      "src": "15:20:1",
+      "usedErrors": [],
+      "usedEvents": []
     }
   ],
   "src": "0:36:1"

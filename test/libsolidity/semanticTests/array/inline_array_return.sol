@@ -10,6 +10,5 @@ contract C {
         return (tester[0], tester[1], tester[2], tester[3], tester[4]);
     }
 }
-
 // ----
 // f() -> 1, 2, 3, 4, 5

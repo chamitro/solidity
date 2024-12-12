@@ -14,11 +14,13 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 #include <test/libsolidity/AnalysisFramework.h>
 #include <test/TestCase.h>
+#include <test/TestCaseReader.h>
 #include <liblangutil/Exceptions.h>
 #include <libsolutil/AnsiColorized.h>
 
@@ -32,7 +34,7 @@ namespace solidity::test
 
 struct SyntaxTestError
 {
-	std::string type;
+	langutil::Error::Type type;
 	std::optional<langutil::ErrorId> errorId;
 	std::string message;
 	std::string sourceName;
@@ -60,13 +62,26 @@ public:
 	void printSource(std::ostream& _stream, std::string const &_linePrefix = "", bool _formatted = false) const override;
 	void printUpdatedExpectations(std::ostream& _stream, std::string const& _linePrefix) const override
 	{
-		if (!m_errorList.empty())
-			printErrorList(_stream, m_errorList, _linePrefix, false);
+		printObtainedResult(_stream, _linePrefix, false);
 	}
 
 	static std::string errorMessage(util::Exception const& _e);
 protected:
+	/// Should be implemented by those derived test cases that want to allow extra expectations
+	/// after the error/warning expectations. The default implementation does not allow them and
+	/// fails instead.
+	/// @param _stream Input stream positioned at the beginning of the extra expectations.
+	virtual void parseCustomExpectations(std::istream& _stream);
+
 	virtual void parseAndAnalyze() = 0;
+
+	/// Should return true if obtained values match expectations.
+	/// The default implementation only compares the error list. Derived classes that support
+	/// custom expectations should override this to include them in the comparison.
+	virtual bool expectationsMatch();
+
+	virtual void printExpectedResult(std::ostream& _stream, std::string const& _linePrefix, bool _formatted) const;
+	virtual void printObtainedResult(std::ostream& _stream, std::string const& _linePrefix, bool _formatted) const;
 
 	static void printErrorList(
 		std::ostream& _stream,
@@ -80,7 +95,7 @@ protected:
 
 	static std::vector<SyntaxTestError> parseExpectations(std::istream& _stream);
 
-	std::map<std::string, std::string> m_sources;
+	frontend::test::SourceMap m_sources;
 	std::vector<SyntaxTestError> m_expectations;
 	std::vector<SyntaxTestError> m_errorList;
 	langutil::EVMVersion const m_evmVersion;

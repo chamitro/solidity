@@ -1,55 +1,47 @@
 {
   "absolutePath": "a",
-  "exportedSymbols":
-  {
-    "S":
-    [
+  "exportedSymbols": {
+    "S": [
       3
     ]
   },
   "id": 4,
-  "license": null,
   "nodeType": "SourceUnit",
-  "nodes":
-  [
+  "nodes": [
     {
       "canonicalName": "S",
       "id": 3,
-      "members":
-      [
+      "members": [
         {
           "constant": false,
           "id": 2,
           "mutability": "mutable",
           "name": "a",
+          "nameLocation": "19:1:1",
           "nodeType": "VariableDeclaration",
-          "overrides": null,
           "scope": 3,
           "src": "11:9:1",
           "stateVariable": false,
           "storageLocation": "default",
-          "typeDescriptions":
-          {
+          "typeDescriptions": {
             "typeIdentifier": "t_uint256",
             "typeString": "uint256"
           },
-          "typeName":
-          {
+          "typeName": {
             "id": 1,
             "name": "uint256",
             "nodeType": "ElementaryTypeName",
             "src": "11:7:1",
-            "typeDescriptions":
-            {
+            "typeDescriptions": {
               "typeIdentifier": "t_uint256",
               "typeString": "uint256"
             }
           },
-          "value": null,
           "visibility": "internal"
         }
       ],
       "name": "S",
+      "nameLocation": "7:1:1",
       "nodeType": "StructDefinition",
       "scope": 4,
       "src": "0:23:1",

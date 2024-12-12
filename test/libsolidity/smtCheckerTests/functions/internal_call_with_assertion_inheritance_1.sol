@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract A {
 	uint x;
 	function f() internal {
@@ -9,13 +7,14 @@ contract A {
 }
 
 contract C is A {
-	constructor() public {
+	constructor() {
 		assert(x == 0);
 		++x;
 		f();
 		assert(x == 0);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4144: (100-103): Underflow (resulting value less than 0) happens here
-// Warning 4144: (100-103): Underflow (resulting value less than 0) happens here
+// Info 1391: CHC: 5 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

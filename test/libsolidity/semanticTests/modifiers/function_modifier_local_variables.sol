@@ -13,7 +13,6 @@ contract C {
         return 3;
     }
 }
-
 // ----
 // f(bool): true -> 0
 // f(bool): false -> 3

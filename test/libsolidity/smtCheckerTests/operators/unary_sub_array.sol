@@ -1,9 +1,9 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	uint[] array;
+	function p() public { array.push(); }
 	function f(uint x) public {
+		require(x < array.length);
 		array[x] = 5;
 		uint a = --array[x];
 		assert(array[x] == 4);
@@ -14,5 +14,9 @@ contract C
 		assert(b > 4);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreCex: yes
 // ----
-// Warning 4661: (240-253): Assertion violation happens here
+// Warning 6328: (275-288): CHC: Assertion violation happens here.
+// Info 1391: CHC: 10 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

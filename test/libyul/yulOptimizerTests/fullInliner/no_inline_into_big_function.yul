@@ -1,5 +1,5 @@
 {
-	function f(a) -> b {
+    function f(a) -> b {
         let x := mload(a)
         b := sload(x)
     }
@@ -9,10 +9,13 @@
         x := f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(2)))))))))))))))))))
     }
 }
+// ====
+// EVMVersion: >homestead
 // ----
 // step: fullInliner
 //
 // {
+//     { }
 //     function f(a) -> b
 //     { b := sload(mload(a)) }
 //     function g() -> x_1

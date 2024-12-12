@@ -33,9 +33,6 @@ contract D {
         return c.x();
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> 3
 // g() -> 8

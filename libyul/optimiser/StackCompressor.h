@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimisation stage that aggressively rematerializes certain variables ina a function to free
  * space on the stack until it is compilable.
@@ -21,13 +22,15 @@
 
 #pragma once
 
+#include <libyul/Object.h>
+
 #include <memory>
 
 namespace solidity::yul
 {
 
-struct Dialect;
-struct Object;
+class Dialect;
+class Object;
 struct FunctionDefinition;
 
 /**
@@ -42,10 +45,9 @@ class StackCompressor
 {
 public:
 	/// Try to remove local variables until the AST is compilable.
-	/// @returns true if it was successful.
-	static bool run(
-		Dialect const& _dialect,
-		Object& _object,
+	/// @returns tuple with true if it was successful as first element, second element is the modified AST.
+	static std::tuple<bool, Block> run(
+		Object const& _object,
 		bool _optimizeStackAllocation,
 		size_t _maxIterations
 	);

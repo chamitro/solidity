@@ -29,8 +29,6 @@ contract C {
         for (;;) {break;}
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f() -> 1024
 // g() -> 1024

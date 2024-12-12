@@ -7,7 +7,6 @@ contract C {
         if (msg.value > 0) _;
     }
 }
-
 // ----
 // getOne() -> 0
 // getOne(), 1 wei -> 1

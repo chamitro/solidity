@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file Assertions.h
  * @author Christian <c@ethdev.com>
@@ -25,6 +26,10 @@
 #pragma once
 
 #include <libsolutil/Exceptions.h>
+#include <libsolutil/CommonData.h>
+
+#include <string>
+#include <utility>
 
 namespace solidity::util
 {
@@ -37,21 +42,48 @@ namespace solidity::util
 #define ETH_FUNC __func__
 #endif
 
-/// Assertion that throws an exception containing the given description if it is not met.
-/// Use it as assertThrow(1 == 1, ExceptionType, "Mathematics is wrong.");
-/// Do NOT supply an exception object as the second parameter.
-#define assertThrow(_condition, _exceptionType, _description) \
+#if defined(__GNUC__)
+// GCC 4.8+, Clang, Intel and other compilers compatible with GCC (-std=c++0x or above)
+[[noreturn]] inline __attribute__((always_inline)) void unreachable()
+{
+	__builtin_unreachable();
+}
+
+#elif defined(_MSC_VER) // MSVC
+
+[[noreturn]] __forceinline void unreachable()
+{
+	__assume(false);
+}
+
+#else
+
+[[noreturn]] inline void unreachable()
+{
+	solThrow(Exception, "Unreachable");
+}
+#endif
+
+/// Base macro that can be used to implement assertion macros.
+/// Throws an exception containing the given description if the condition is not met.
+/// Allows you to provide the default description for the case where the user of your macro does
+/// not provide any.
+/// The second parameter must be an exception class (rather than an instance).
+#define assertThrowWithDefaultDescription(_condition, _exceptionType, _description, _defaultDescription) \
 	do \
 	{ \
 		if (!(_condition)) \
-			::boost::throw_exception( \
-				_exceptionType() << \
-				::solidity::util::errinfo_comment(_description) << \
-				::boost::throw_function(ETH_FUNC) << \
-				::boost::throw_file(__FILE__) << \
-				::boost::throw_line(__LINE__) \
+			solThrow( \
+				_exceptionType, \
+				::solidity::util::stringOrDefault((_description), (_defaultDescription)) \
 			); \
 	} \
 	while (false)
+
+/// Assertion that throws an exception containing the given description if it is not met.
+/// Use it as assertThrow(1 == 1, ExceptionType, "Mathematics is wrong.");
+/// The second parameter must be an exception class (rather than an instance).
+#define assertThrow(_condition, _exceptionType, _description) \
+	assertThrowWithDefaultDescription((_condition), _exceptionType, (_description), "Assertion failed")
 
 }

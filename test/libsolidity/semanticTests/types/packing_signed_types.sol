@@ -4,7 +4,5 @@ contract test {
         return int8(x);
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // run() -> 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa

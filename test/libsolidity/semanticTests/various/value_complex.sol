@@ -8,16 +8,21 @@ contract helper {
 contract test {
     helper h;
 
-    constructor() public payable {
+    constructor() payable {
         h = new helper();
     }
 
     function sendAmount(uint256 amount) public payable returns (uint256 bal) {
         uint256 someStackElement = 20;
-        return h.getBalance.value(amount).gas(1000).value(amount + 3)();
+        return h.getBalance{value: amount + 3, gas: 1000}();
     }
 }
-
 // ----
 // constructor(), 20 wei ->
+// gas irOptimized: 114463
+// gas irOptimized code: 58800
+// gas legacy: 120091
+// gas legacy code: 132400
+// gas legacyOptimized: 114536
+// gas legacyOptimized code: 65800
 // sendAmount(uint256): 5 -> 8

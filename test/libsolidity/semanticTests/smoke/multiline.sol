@@ -5,11 +5,9 @@ contract C {
 }
 // ====
 // allowNonExistingFunctions: true
-// compileViaYul: also
 // ----
 // f(uint256,uint256,uint256,uint256,uint256): 1, 1, 1, 1, 1
 // -> 5
 // g()
 // # g() does not exist #
 // -> FAILURE
-

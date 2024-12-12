@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 contract C {
     function ggg8(uint8 x) external pure returns (uint256) {
@@ -42,8 +42,6 @@ contract C {
         return this.g128(x);
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f8(uint256): 0 -> 0
 // ggg8(uint8): 0 -> 0 # test validation as well as sanity check #

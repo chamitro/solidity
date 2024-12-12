@@ -11,12 +11,18 @@ contract thirdPartyContractAbstract {
     function approvedCorionToken(address, uint256, bytes calldata) external returns (bool) {}
 }
 
+/**
+ *
+ * @title Corion Platform Token
+ * @author iFA @ Corion Platform
+ *
+ */
 contract token is safeMath, module, announcementTypes {
     /*
         module callbacks
     */
     function replaceModule(address payable addr) external override returns (bool success) {
-        require( super.isModuleHandler(msg.sender) );
+        require( super.isModuleHandler(payable(msg.sender)) );
         require( db.replaceOwner(addr) );
         super._replaceModule(addr);
         return true;
@@ -26,12 +32,7 @@ contract token is safeMath, module, announcementTypes {
         require( _success && _active );
         _;
     }
-    /**
-    *
-    * @title Corion Platform Token
-    * @author iFA @ Corion Platform
-    *
-    */
+
     string public name = "Corion";
     string public symbol = "COR";
     uint8 public decimals = 6;
@@ -48,7 +49,7 @@ contract token is safeMath, module, announcementTypes {
 
     mapping(address => bool) public genesis;
 
-    constructor(bool forReplace, address payable moduleHandler, address dbAddr, address payable icoContractAddr, address payable exchangeContractAddress, address payable[] memory genesisAddr, uint256[] memory genesisValue) public payable {
+    constructor(bool forReplace, address payable moduleHandler, address dbAddr, address payable icoContractAddr, address payable exchangeContractAddress, address payable[] memory genesisAddr, uint256[] memory genesisValue) payable {
         /*
             Installation function
 
@@ -217,11 +218,11 @@ contract token is safeMath, module, announcementTypes {
             @success    Was the Function successful?
         */
         if ( from != msg.sender ) {
-            (bool _success, uint256 _reamining, uint256 _nonce) = db.getAllowance(from, msg.sender);
+            (bool _success, uint256 _remaining, uint256 _nonce) = db.getAllowance(from, msg.sender);
             require( _success );
-            _reamining = safeSub(_reamining, amount);
+            _remaining = safeSub(_remaining, amount);
             _nonce = safeAdd(_nonce, 1);
-            require( db.setAllowance(from, msg.sender, _reamining, _nonce) );
+            require( db.setAllowance(from, msg.sender, _remaining, _nonce) );
             emit AllowanceUsed(msg.sender, from, amount);
         }
         bytes memory _data;
@@ -254,7 +255,7 @@ contract token is safeMath, module, announcementTypes {
             @success    Was the Function successful?
         */
         bytes memory _data;
-        require( super.isModuleHandler(msg.sender) );
+        require( super.isModuleHandler(payable(msg.sender)) );
         _transfer( from, to, amount, fee);
         emit Transfer(from, to, amount, _data);
         return true;
@@ -352,7 +353,7 @@ contract token is safeMath, module, announcementTypes {
 
             @success    Was the Function successful?
         */
-        require( super.isModuleHandler(msg.sender) );
+        require( super.isModuleHandler(payable(msg.sender)) );
         _processTransactionFee(owner, value);
         return true;
     }
@@ -411,7 +412,7 @@ contract token is safeMath, module, announcementTypes {
 
             @success    Was the Function successful?
         */
-        require( super.isModuleHandler(msg.sender) || msg.sender == icoAddr );
+        require( super.isModuleHandler(payable(msg.sender)) || msg.sender == icoAddr );
         _mint(owner, value);
         return true;
     }
@@ -440,7 +441,7 @@ contract token is safeMath, module, announcementTypes {
 
             @success    Was the Function successful?
         */
-        require( super.isModuleHandler(msg.sender) );
+        require( super.isModuleHandler(payable(msg.sender)) );
         _burn(owner, value);
         return true;
     }
@@ -463,7 +464,7 @@ contract token is safeMath, module, announcementTypes {
 
             @addr       Address to be checked
 
-            @success    Is the address crontact or not
+            @success    Is the address contract or not
         */
         uint256 _codeLength;
         assembly {
@@ -501,7 +502,7 @@ contract token is safeMath, module, announcementTypes {
 
             @success    Was the Function successful?
         */
-        require( super.isModuleHandler(msg.sender) );
+        require( super.isModuleHandler(payable(msg.sender)) );
         if      ( aType == announcementType.transactionFeeRate )    { transactionFeeRate = value; }
         else if ( aType == announcementType.transactionFeeMin )     { transactionFeeMin = value; }
         else if ( aType == announcementType.transactionFeeMax )     { transactionFeeMax = value; }

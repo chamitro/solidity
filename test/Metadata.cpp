@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @date 2017
  * Metadata processing helpers.
@@ -23,17 +24,14 @@
 #include <iostream>
 #include <libsolutil/Assertions.h>
 #include <libsolutil/CommonData.h>
-#include <libsolutil/JSON.h>
 #include <test/Metadata.h>
-
-using namespace std;
 
 namespace solidity::test
 {
 
 bytes onlyMetadata(bytes const& _bytecode)
 {
-	unsigned size = _bytecode.size();
+	size_t size = _bytecode.size();
 	if (size < 5)
 		return bytes{};
 	size_t metadataSize = (static_cast<size_t>(_bytecode[size - 2]) << 8ul) + static_cast<size_t>(_bytecode[size - 1]);
@@ -48,13 +46,13 @@ bytes onlyMetadata(bytes const& _bytecode)
 
 bytes bytecodeSansMetadata(bytes const& _bytecode)
 {
-	unsigned metadataSize = onlyMetadata(_bytecode).size();
+	size_t metadataSize = onlyMetadata(_bytecode).size();
 	if (metadataSize == 0)
 		return bytes{};
-	return bytes(_bytecode.begin(), _bytecode.end() - metadataSize - 2);
+	return bytes(_bytecode.begin(), _bytecode.end() - static_cast<ptrdiff_t>(metadataSize) - 2);
 }
 
-string bytecodeSansMetadata(string const& _bytecode)
+std::string bytecodeSansMetadata(std::string const& _bytecode)
 {
 	return util::toHex(bytecodeSansMetadata(fromHex(_bytecode, util::WhenError::Throw)));
 }
@@ -73,11 +71,11 @@ public:
 		assertThrow(nextType() == MajorType::Map, CBORException, "Fixed-length map expected.");
 		return readLength();
 	}
-	string readKey()
+	std::string readKey()
 	{
 		return readString();
 	}
-	string readValue()
+	std::string readValue()
 	{
 		switch(nextType())
 		{
@@ -94,7 +92,10 @@ public:
 				else if (value == 21)
 					return "true";
 				else
+				{
 					assertThrow(false, CBORException, "Unsupported simple value (not a boolean).");
+					return ""; // unreachable, but prevents compiler warning.
+				}
 			}
 			default:
 				assertThrow(false, CBORException, "Unsupported value type.");
@@ -129,37 +130,37 @@ private:
 		if (length == 24)
 			return m_metadata.at(m_pos++);
 		// Unsupported length kind. (Only by this parser.)
-		assertThrow(false, CBORException, string("Unsupported length ") + to_string(length));
+		assertThrow(false, CBORException, std::string("Unsupported length ") + std::to_string(length));
 	}
 	bytes readBytes(unsigned length)
 	{
-		bytes ret{m_metadata.begin() + m_pos, m_metadata.begin() + m_pos + length};
+		bytes ret{m_metadata.begin() + static_cast<int>(m_pos), m_metadata.begin() + static_cast<int>(m_pos + length)};
 		m_pos += length;
 		return ret;
 	}
-	string readString()
+	std::string readString()
 	{
 		// Expect a text string.
 		assertThrow(nextType() == MajorType::TextString, CBORException, "String expected.");
 		bytes tmp{readBytes(readLength())};
-		return string{tmp.begin(), tmp.end()};
+		return std::string{tmp.begin(), tmp.end()};
 	}
 	unsigned m_pos;
 	bytes const& m_metadata;
 };
 
-std::optional<map<string, string>> parseCBORMetadata(bytes const& _metadata)
+std::optional<std::map<std::string, std::string>> parseCBORMetadata(bytes const& _metadata)
 {
 	try
 	{
 		TinyCBORParser parser(_metadata);
-		map<string, string> ret;
+		std::map<std::string, std::string> ret;
 		unsigned count = parser.mapItemCount();
 		for (unsigned i = 0; i < count; i++)
 		{
-			string key = parser.readKey();
-			string value = parser.readValue();
-			ret[move(key)] = move(value);
+			std::string key = parser.readKey();
+			std::string value = parser.readValue();
+			ret[std::move(key)] = std::move(value);
 		}
 		return ret;
 	}
@@ -169,30 +170,35 @@ std::optional<map<string, string>> parseCBORMetadata(bytes const& _metadata)
 	}
 }
 
-bool isValidMetadata(string const& _metadata)
+bool isValidMetadata(std::string const& _serialisedMetadata)
 {
-	Json::Value metadata;
-	if (!util::jsonParseStrict(_metadata, metadata))
+	Json metadata;
+	if (!util::jsonParseStrict(_serialisedMetadata, metadata))
 		return false;
 
+	return isValidMetadata(metadata);
+}
+
+bool isValidMetadata(Json const& _metadata)
+{
 	if (
-		!metadata.isObject() ||
-		!metadata.isMember("version") ||
-		!metadata.isMember("language") ||
-		!metadata.isMember("compiler") ||
-		!metadata.isMember("settings") ||
-		!metadata.isMember("sources") ||
-		!metadata.isMember("output") ||
-		!metadata["settings"].isMember("evmVersion") ||
-		!metadata["settings"].isMember("metadata") ||
-		!metadata["settings"]["metadata"].isMember("bytecodeHash")
+		!_metadata.is_object() ||
+		!_metadata.contains("version") ||
+		!_metadata.contains("language") ||
+		!_metadata.contains("compiler") ||
+		!_metadata.contains("settings") ||
+		!_metadata.contains("sources") ||
+		!_metadata.contains("output") ||
+		!_metadata["settings"].contains("evmVersion") ||
+		!_metadata["settings"].contains("metadata") ||
+		!_metadata["settings"]["metadata"].contains("bytecodeHash")
 	)
 		return false;
 
-	if (!metadata["version"].isNumeric() || metadata["version"] != 1)
+	if (!_metadata["version"].is_number() || _metadata["version"] != 1)
 		return false;
 
-	if (!metadata["language"].isString() || metadata["language"].asString() != "Solidity")
+	if (!_metadata["language"].is_string() || _metadata["language"].get<std::string>() != "Solidity")
 		return false;
 
 	/// @TODO add more strict checks

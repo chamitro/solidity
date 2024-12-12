@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Expression simplification pattern.
  */
@@ -29,9 +30,8 @@ namespace solidity::evmasm
 
 /**
  * Rule that contains a pattern, an action that can be applied
- * after the pattern has matched and a bool that indicates
- * whether the action would remove something from the expression
- * than is not a constant literal.
+ * after the pattern has matched and optional condition to check if the
+ * action should be applied.
  */
 template <class Pattern>
 struct SimplificationRule
@@ -39,18 +39,15 @@ struct SimplificationRule
 	SimplificationRule(
 		Pattern _pattern,
 		std::function<Pattern()> _action,
-		bool _removesNonConstants,
 		std::function<bool()> _feasible = {}
 	):
 		pattern(std::move(_pattern)),
 		action(std::move(_action)),
-		removesNonConstants(_removesNonConstants),
 		feasible(std::move(_feasible))
 	{}
 
 	Pattern pattern;
 	std::function<Pattern()> action;
-	bool removesNonConstants;
 	std::function<bool()> feasible;
 };
 
@@ -120,21 +117,27 @@ struct EVMBuiltins
 	static auto constexpr EXTCODECOPY = PatternGenerator<Instruction::EXTCODECOPY>{};
 	static auto constexpr RETURNDATASIZE = PatternGenerator<Instruction::RETURNDATASIZE>{};
 	static auto constexpr RETURNDATACOPY = PatternGenerator<Instruction::RETURNDATACOPY>{};
+	static auto constexpr MCOPY = PatternGenerator<Instruction::MCOPY>{};
 	static auto constexpr EXTCODEHASH = PatternGenerator<Instruction::EXTCODEHASH>{};
 	static auto constexpr BLOCKHASH = PatternGenerator<Instruction::BLOCKHASH>{};
+	static auto constexpr BLOBHASH = PatternGenerator<Instruction::BLOBHASH>{};
 	static auto constexpr COINBASE = PatternGenerator<Instruction::COINBASE>{};
 	static auto constexpr TIMESTAMP = PatternGenerator<Instruction::TIMESTAMP>{};
 	static auto constexpr NUMBER = PatternGenerator<Instruction::NUMBER>{};
-	static auto constexpr DIFFICULTY = PatternGenerator<Instruction::DIFFICULTY>{};
+	static auto constexpr PREVRANDAO = PatternGenerator<Instruction::PREVRANDAO>{};
 	static auto constexpr GASLIMIT = PatternGenerator<Instruction::GASLIMIT>{};
 	static auto constexpr CHAINID = PatternGenerator<Instruction::CHAINID>{};
 	static auto constexpr SELFBALANCE = PatternGenerator<Instruction::SELFBALANCE>{};
+	static auto constexpr BASEFEE = PatternGenerator<Instruction::BASEFEE>{};
+	static auto constexpr BLOBBASEFEE = PatternGenerator<Instruction::BLOBBASEFEE>{};
 	static auto constexpr POP = PatternGenerator<Instruction::POP>{};
 	static auto constexpr MLOAD = PatternGenerator<Instruction::MLOAD>{};
 	static auto constexpr MSTORE = PatternGenerator<Instruction::MSTORE>{};
 	static auto constexpr MSTORE8 = PatternGenerator<Instruction::MSTORE8>{};
 	static auto constexpr SLOAD = PatternGenerator<Instruction::SLOAD>{};
 	static auto constexpr SSTORE = PatternGenerator<Instruction::SSTORE>{};
+	static auto constexpr TLOAD = PatternGenerator<Instruction::TLOAD>{};
+	static auto constexpr TSTORE = PatternGenerator<Instruction::TSTORE>{};
 	static auto constexpr PC = PatternGenerator<Instruction::PC>{};
 	static auto constexpr MSIZE = PatternGenerator<Instruction::MSIZE>{};
 	static auto constexpr GAS = PatternGenerator<Instruction::GAS>{};

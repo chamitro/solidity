@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Contains an abstract base class representing a selection of pairs of elements from a collection
  * and its concrete implementations.
@@ -22,6 +23,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstddef>
 #include <tuple>
 #include <vector>
 
@@ -105,7 +107,7 @@ class PairMosaicSelection: public PairSelection
 {
 public:
 	explicit PairMosaicSelection(std::vector<std::tuple<size_t, size_t>> _pattern, double _selectionSize = 1.0):
-		m_pattern(move(_pattern)),
+		m_pattern(std::move(_pattern)),
 		m_selectionSize(_selectionSize)
 	{
 		assert(m_pattern.size() > 0 || _selectionSize == 0.0);

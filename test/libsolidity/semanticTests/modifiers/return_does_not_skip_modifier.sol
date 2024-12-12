@@ -9,7 +9,6 @@ contract C {
         return 2;
     }
 }
-
 // ----
 // x() -> 0
 // f() -> 2

@@ -28,6 +28,5 @@ contract C {
         return 1;
     }
 }
-
 // ----
 // test() -> 1

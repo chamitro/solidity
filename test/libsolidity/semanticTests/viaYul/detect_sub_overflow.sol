@@ -6,12 +6,10 @@ contract C {
         x = a - b;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f(uint256,uint256): 6, 5 -> 1
 // f(uint256,uint256): 6, 6 -> 0
-// f(uint256,uint256): 5, 6 -> FAILURE
+// f(uint256,uint256): 5, 6 -> FAILURE, hex"4e487b71", 0x11
 // g(uint8,uint8): 6, 5 -> 1
 // g(uint8,uint8): 6, 6 -> 0
-// g(uint8,uint8): 5, 6 -> FAILURE
+// g(uint8,uint8): 5, 6 -> FAILURE, hex"4e487b71", 0x11

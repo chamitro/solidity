@@ -4,7 +4,7 @@ contract test {
     }
     testStruct data1;
 
-    constructor() public {
+    constructor() {
         data1.m_value = 2;
     }
 
@@ -15,6 +15,5 @@ contract test {
         ret_value = data1.m_value;
     }
 }
-
 // ----
 // deleteMember() -> 0

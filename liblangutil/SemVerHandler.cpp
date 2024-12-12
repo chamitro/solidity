@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Christian <chris@ethereum.org>
  * @date 2016
@@ -22,13 +23,24 @@
 
 #include <liblangutil/SemVerHandler.h>
 
-#include <functional>
+#include <liblangutil/Exceptions.h>
 
-using namespace std;
+#include <functional>
+#include <limits>
+#include <fmt/format.h>
+
+using namespace std::string_literals;
 using namespace solidity;
 using namespace solidity::langutil;
+using namespace solidity::util;
 
-SemVerVersion::SemVerVersion(string const& _versionString)
+SemVerMatchExpressionParser::SemVerMatchExpressionParser(std::vector<Token> _tokens, std::vector<std::string> _literals):
+	m_tokens(std::move(_tokens)), m_literals(std::move(_literals))
+{
+	solAssert(m_tokens.size() == m_literals.size(), "");
+}
+
+SemVerVersion::SemVerVersion(std::string const& _versionString)
 {
 	auto i = _versionString.begin();
 	auto end = _versionString.end();
@@ -42,7 +54,7 @@ SemVerVersion::SemVerVersion(string const& _versionString)
 		if (level < 2)
 		{
 			if (i == end || *i != '.')
-				throw SemVerError();
+				solThrow(SemVerError, "Invalid versionString: "s + _versionString);
 			else
 				++i;
 		}
@@ -51,16 +63,16 @@ SemVerVersion::SemVerVersion(string const& _versionString)
 	{
 		auto prereleaseStart = ++i;
 		while (i != end && *i != '+') ++i;
-		prerelease = string(prereleaseStart, i);
+		prerelease = std::string(prereleaseStart, i);
 	}
 	if (i != end && *i == '+')
 	{
 		auto buildStart = ++i;
 		while (i != end) ++i;
-		build = string(buildStart, i);
+		build = std::string(buildStart, i);
 	}
 	if (i != end)
-		throw SemVerError();
+		solThrow(SemVerError, "Invalid versionString "s + _versionString);
 }
 
 bool SemVerMatchExpression::MatchComponent::matches(SemVerVersion const& _version) const
@@ -103,7 +115,7 @@ bool SemVerMatchExpression::MatchComponent::matches(SemVerVersion const& _versio
 			if (version.numbers[i] != std::numeric_limits<unsigned>::max())
 			{
 				didCompare = true;
-				cmp = static_cast<int>(_version.numbers[i] - version.numbers[i]);
+				cmp = static_cast<int>(_version.numbers[i]) - static_cast<int>(version.numbers[i]);
 			}
 
 		if (cmp == 0 && !_version.prerelease.empty() && didCompare)
@@ -150,6 +162,9 @@ SemVerMatchExpression SemVerMatchExpressionParser::parse()
 {
 	reset();
 
+	if (m_tokens.empty())
+		solThrow(SemVerError, "Empty version pragma.");
+
 	try
 	{
 		while (true)
@@ -158,13 +173,19 @@ SemVerMatchExpression SemVerMatchExpressionParser::parse()
 			if (m_pos >= m_tokens.size())
 				break;
 			if (currentToken() != Token::Or)
-				throw SemVerError();
+			{
+				solThrow(
+					SemVerError,
+					"You can only combine version ranges using the || operator."
+				);
+			}
 			nextToken();
 		}
 	}
-	catch (SemVerError const&)
+	catch (SemVerError const& e)
 	{
 		reset();
+		throw e;
 	}
 
 	return m_expression;
@@ -245,20 +266,28 @@ unsigned SemVerMatchExpressionParser::parseVersionPart()
 		return 0;
 	else if ('1' <= c && c <= '9')
 	{
-		unsigned v(c - '0');
+		auto v = static_cast<unsigned>(c - '0');
 		// If we skip to the next token, the current number is terminated.
 		while (m_pos == startPos && '0' <= currentChar() && currentChar() <= '9')
 		{
 			c = currentChar();
-			if (v * 10 < v || v * 10 + unsigned(c - '0') < v * 10)
-				throw SemVerError();
-			v = v * 10 + unsigned(c - '0');
+			if (v * 10 < v || v * 10 + static_cast<unsigned>(c - '0') < v * 10)
+				solThrow(SemVerError, "Integer too large to be used in a version number.");
+			v = v * 10 + static_cast<unsigned>(c - '0');
 			nextChar();
 		}
 		return v;
 	}
+	else if (c == char(-1))
+		solThrow(SemVerError, "Expected version number but reached end of pragma.");
 	else
-		throw SemVerError();
+		solThrow(
+			SemVerError, fmt::format(
+				"Expected the start of a version number but instead found character '{}'. "
+				"Version number is invalid or the pragma is not terminated with a semicolon.",
+				c
+			)
+		);
 }
 
 char SemVerMatchExpressionParser::currentChar() const

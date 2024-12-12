@@ -1,8 +1,16 @@
-pragma experimental SMTChecker;
-
 contract C {
 	uint[][] arr;
-	uint[][] arr2;
+	constructor() {
+		arr.push();
+		arr.push();
+		arr.push();
+		arr.push();
+		arr.push();
+		arr.push();
+		arr.push();
+		arr.push();
+		arr.push();
+	}
 	function f() public {
 		uint x = arr[2].length;
 		uint y = arr[3].length;
@@ -15,8 +23,12 @@ contract C {
 		assert(arr[5].length != t);
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreOS: macos
 // ----
-// Warning 4661: (222-248): Assertion violation happens here
-// Warning 4661: (252-278): Assertion violation happens here
-// Warning 4661: (282-305): Assertion violation happens here
-// Warning 4661: (309-335): Assertion violation happens here
+// Warning 6328: (319-345): CHC: Assertion violation happens here.
+// Warning 6328: (349-375): CHC: Assertion violation happens here.
+// Warning 6328: (379-402): CHC: Assertion violation happens here.
+// Warning 6328: (406-432): CHC: Assertion violation happens here.
+// Info 1391: CHC: 8 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

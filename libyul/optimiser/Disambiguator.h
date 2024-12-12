@@ -14,13 +14,14 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Optimiser component that makes all identifiers unique.
  */
 
 #pragma once
 
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
 #include <libyul/AsmAnalysisInfo.h>
 #include <libyul/optimiser/ASTCopier.h>
 #include <libyul/optimiser/NameDispenser.h>
@@ -30,7 +31,7 @@
 
 namespace solidity::yul
 {
-struct Dialect;
+class Dialect;
 
 /**
  * Creates a copy of a Yul AST replacing all identifiers by unique names.
@@ -41,7 +42,7 @@ public:
 	explicit Disambiguator(
 		Dialect const& _dialect,
 		AsmAnalysisInfo const& _analysisInfo,
-		std::set<YulString> const& _externallyUsedIdentifiers = {}
+		std::set<YulName> const& _externallyUsedIdentifiers = {}
 	):
 		m_info(_analysisInfo),
 		m_dialect(_dialect),
@@ -55,17 +56,17 @@ protected:
 	void leaveScope(Block const& _block) override;
 	void enterFunction(FunctionDefinition const& _function) override;
 	void leaveFunction(FunctionDefinition const& _function) override;
-	YulString translateIdentifier(YulString _name) override;
+	YulName translateIdentifier(YulName _name) override;
 
 	void enterScopeInternal(Scope& _scope);
 	void leaveScopeInternal(Scope& _scope);
 
 	AsmAnalysisInfo const& m_info;
 	Dialect const& m_dialect;
-	std::set<YulString> const& m_externallyUsedIdentifiers;
+	std::set<YulName> const& m_externallyUsedIdentifiers;
 
 	std::vector<Scope*> m_scopes;
-	std::map<void const*, YulString> m_translations;
+	std::map<void const*, YulName> m_translations;
 	NameDispenser m_nameDispenser;
 };
 

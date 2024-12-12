@@ -1,6 +1,6 @@
 contract C {
     uint public i;
-    constructor() public {
+    constructor() {
         i = 2;
     }
 }
@@ -9,7 +9,7 @@ contract D {
         return new C().i();
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f() -> 2
+// gas legacy: 76585
+// gas legacy code: 23600

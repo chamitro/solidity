@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @author Christian <c@ethdev.com>
  * @date 2014
@@ -22,8 +23,8 @@
 
 #pragma once
 
+#include <liblangutil/EVMVersion.h>
 #include <libsolidity/ast/ASTForward.h>
-#include <boost/noncopyable.hpp>
 #include <map>
 #include <memory>
 #include <string>
@@ -40,11 +41,16 @@ class Type; // forward
  * @note must not be destroyed or moved during compilation as its objects can be referenced from
  * other objects.
  */
-class GlobalContext: private boost::noncopyable
+class GlobalContext
 {
 public:
-	GlobalContext();
+	/// Noncopyable.
+	GlobalContext(GlobalContext const&) = delete;
+	GlobalContext& operator=(GlobalContext const&) = delete;
+
+	GlobalContext(langutil::EVMVersion _evmVersion);
 	void setCurrentContract(ContractDefinition const& _contract);
+	void resetCurrentContract() { m_currentContract = nullptr; }
 	MagicVariableDeclaration const* currentThis() const;
 	MagicVariableDeclaration const* currentSuper() const;
 

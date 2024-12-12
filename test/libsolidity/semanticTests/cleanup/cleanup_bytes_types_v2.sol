@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 
 // Checks that bytesXX types are properly cleaned before they are compared.
@@ -10,7 +10,5 @@ contract C {
         return 0;
     }
 }
-// ====
-// compileViaYul: also
 // ----
 // f(bytes2,uint16): "abc", 0x40102 -> FAILURE # We input longer data on purpose. #

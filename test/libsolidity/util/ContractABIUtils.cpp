@@ -14,17 +14,22 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <test/libsolidity/util/ContractABIUtils.h>
 
 #include <test/libsolidity/util/SoltestErrors.h>
 
+#include <libsolidity/ast/Types.h>
+#include <libsolidity/ast/TypeProvider.h>
+#include <libsolutil/FunctionSelector.h>
+#include <libsolutil/CommonData.h>
+
 #include <liblangutil/Common.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
-#include <boost/bind.hpp>
-#include <boost/range/algorithm_ext/for_each.hpp>
+#include <range/v3/view/zip.hpp>
 
 #include <fstream>
 #include <memory>
@@ -36,102 +41,117 @@ using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::langutil;
 using namespace solidity::frontend::test;
-using namespace std;
-using namespace soltest;
 
 namespace
 {
 
 using ParameterList = solidity::frontend::test::ParameterList;
 
-size_t arraySize(string const& _arrayType)
+size_t arraySize(std::string const& _arrayType)
 {
 	auto leftBrack = _arrayType.find("[");
 	auto rightBrack = _arrayType.rfind("]");
 
 	soltestAssert(
-		leftBrack != string::npos &&
-		rightBrack != string::npos &&
+		leftBrack != std::string::npos &&
+		rightBrack != std::string::npos &&
 		rightBrack == _arrayType.size() - 1 &&
 		leftBrack < rightBrack,
 		""
 	);
 
-	string size = _arrayType.substr(leftBrack + 1, rightBrack - leftBrack - 1);
+	std::string size = _arrayType.substr(leftBrack + 1, rightBrack - leftBrack - 1);
 
 	return static_cast<size_t>(stoi(size));
 }
 
-bool isBool(string const& _type)
+bool isBool(std::string const& _type)
 {
 	return _type == "bool";
 }
 
-bool isUint(string const& _type)
+bool isUint(std::string const& _type)
 {
-	return regex_match(_type, regex{"uint\\d*"});
+	return regex_match(_type, std::regex{"uint\\d*"});
 }
 
-bool isInt(string const& _type)
+bool isInt(std::string const& _type)
 {
-	return regex_match(_type, regex{"int\\d*"});
+	return regex_match(_type, std::regex{"int\\d*"});
 }
 
-bool isFixedBytes(string const& _type)
+bool isFixedBytes(std::string const& _type)
 {
-	return regex_match(_type, regex{"bytes\\d+"});
+	return regex_match(_type, std::regex{"bytes\\d+"});
 }
 
-bool isBytes(string const& _type)
+bool isBytes(std::string const& _type)
 {
-	return regex_match(_type, regex{"\\bbytes\\b"});
+	return regex_match(_type, std::regex{"\\bbytes\\b"});
 }
 
-bool isString(string const& _type)
+bool isString(std::string const& _type)
 {
 	return _type == "string";
 }
 
-bool isFixedBoolArray(string const& _type)
+bool isFixedBoolArray(std::string const& _type)
 {
-	return regex_match(_type, regex{"bool\\[\\d+\\]"});
+	return regex_match(_type, std::regex{"bool\\[\\d+\\]"});
 }
 
-bool isFixedUintArray(string const& _type)
+bool isFixedUintArray(std::string const& _type)
 {
-	return regex_match(_type, regex{"uint\\d*\\[\\d+\\]"});
+	return regex_match(_type, std::regex{"uint\\d*\\[\\d+\\]"});
 }
 
-bool isFixedIntArray(string const& _type)
+bool isFixedIntArray(std::string const& _type)
 {
-	return regex_match(_type, regex{"int\\d*\\[\\d+\\]"});
+	return regex_match(_type, std::regex{"int\\d*\\[\\d+\\]"});
 }
 
-bool isFixedStringArray(string const& _type)
+bool isFixedStringArray(std::string const& _type)
 {
-	return regex_match(_type, regex{"string\\[\\d+\\]"});
+	return regex_match(_type, std::regex{"string\\[\\d+\\]"});
 }
 
-bool isTuple(string const& _type)
+bool isTuple(std::string const& _type)
 {
 	return _type == "tuple";
 }
 
-bool isFixedTupleArray(string const& _type)
+bool isFixedTupleArray(std::string const& _type)
 {
-	return regex_match(_type, regex{"tuple\\[\\d+\\]"});
+	return regex_match(_type, std::regex{"tuple\\[\\d+\\]"});
 }
 
-string functionSignatureFromABI(Json::Value const& _functionABI)
+std::optional<ABIType> isFixedPoint(std::string const& type)
 {
+	std::optional<ABIType> fixedPointType;
+	std::smatch matches;
+	if (regex_match(type, matches, std::regex{"(u?)fixed(\\d+)x(\\d+)"}))
+	{
+		ABIType abiType(ABIType::SignedFixedPoint);
+		if (matches[1].str() == "u")
+			abiType.type = ABIType::UnsignedFixedPoint;
+		abiType.fractionalDigits = static_cast<unsigned>(std::stoi(matches[3].str()));
+		fixedPointType = abiType;
+	}
+	return fixedPointType;
+}
+
+std::string functionSignatureFromABI(Json const& _functionABI)
+{
+	soltestAssert(_functionABI.contains("name"));
+
 	auto inputs = _functionABI["inputs"];
-	string signature = {_functionABI["name"].asString() + "("};
+	std::string signature = {_functionABI["name"].get<std::string>() + "("};
 	size_t parameterCount = 0;
 
 	for (auto const& input: inputs)
 	{
 		parameterCount++;
-		signature += input["type"].asString();
+		signature += input["type"].get<std::string>();
 		if (parameterCount < inputs.size())
 			signature += ",";
 	}
@@ -143,15 +163,17 @@ string functionSignatureFromABI(Json::Value const& _functionABI)
 
 std::optional<solidity::frontend::test::ParameterList> ContractABIUtils::parametersFromJsonOutputs(
 	ErrorReporter& _errorReporter,
-	Json::Value const& _contractABI,
-	string const& _functionSignature
+	Json const& _contractABI,
+	std::string const& _functionSignature
 )
 {
-	if (!_contractABI)
+	if (_contractABI.empty())
 		return std::nullopt;
 
 	for (auto const& function: _contractABI)
-		if (_functionSignature == functionSignatureFromABI(function))
+		// ABI may contain functions without names (constructor, fallback, receive). Since name is
+		// necessary to calculate the signature, these cannot possibly match and can be safely ignored.
+		if (function.contains("name") && _functionSignature == functionSignatureFromABI(function))
 		{
 			ParameterList inplaceTypeParams;
 			ParameterList dynamicTypeParams;
@@ -159,7 +181,7 @@ std::optional<solidity::frontend::test::ParameterList> ContractABIUtils::paramet
 
 			for (auto const& output: function["outputs"])
 			{
-				string type = output["type"].asString();
+				std::string type = output["type"].get<std::string>();
 
 				ABITypes inplaceTypes;
 				ABITypes dynamicTypes;
@@ -191,13 +213,13 @@ std::optional<solidity::frontend::test::ParameterList> ContractABIUtils::paramet
 }
 
 bool ContractABIUtils::appendTypesFromName(
-	Json::Value const& _functionOutput,
+	Json const& _functionOutput,
 	ABITypes& _inplaceTypes,
 	ABITypes& _dynamicTypes,
 	bool _isCompoundType
 )
 {
-	string type = _functionOutput["type"].asString();
+	std::string type = _functionOutput["type"].get<std::string>();
 	if (isBool(type))
 		_inplaceTypes.push_back(ABIType{ABIType::Boolean});
 	else if (isUint(type))
@@ -226,16 +248,16 @@ bool ContractABIUtils::appendTypesFromName(
 		_dynamicTypes += inplaceTypes + dynamicTypes;
 	}
 	else if (isFixedBoolArray(type))
-		_inplaceTypes += vector<ABIType>(arraySize(type), ABIType{ABIType::Boolean});
+		_inplaceTypes += std::vector<ABIType>(arraySize(type), ABIType{ABIType::Boolean});
 	else if (isFixedUintArray(type))
-		_inplaceTypes += vector<ABIType>(arraySize(type), ABIType{ABIType::UnsignedDec});
+		_inplaceTypes += std::vector<ABIType>(arraySize(type), ABIType{ABIType::UnsignedDec});
 	else if (isFixedIntArray(type))
-		_inplaceTypes += vector<ABIType>(arraySize(type), ABIType{ABIType::SignedDec});
+		_inplaceTypes += std::vector<ABIType>(arraySize(type), ABIType{ABIType::SignedDec});
 	else if (isFixedStringArray(type))
 	{
 		_inplaceTypes.push_back(ABIType{ABIType::Hex});
 
-		_dynamicTypes += vector<ABIType>(arraySize(type), ABIType{ABIType::Hex});
+		_dynamicTypes += std::vector<ABIType>(arraySize(type), ABIType{ABIType::Hex});
 
 		for (size_t i = 0; i < arraySize(type); i++)
 		{
@@ -243,6 +265,8 @@ bool ContractABIUtils::appendTypesFromName(
 			_dynamicTypes.push_back(ABIType{ABIType::String, ABIType::AlignLeft});
 		}
 	}
+	else if (std::optional<ABIType> fixedPointType = isFixedPoint(type))
+		_inplaceTypes.push_back(*fixedPointType);
 	else if (isBytes(type))
 		return false;
 	else if (isFixedTupleArray(type))
@@ -259,25 +283,17 @@ void ContractABIUtils::overwriteParameters(
 	solidity::frontend::test::ParameterList const& _sourceParameters
 )
 {
-	boost::for_each(
-		_sourceParameters,
-		_targetParameters,
-		boost::bind<void>(
-			[&](Parameter _a, Parameter& _b) -> void
+	using namespace std::placeholders;
+	for (auto&& [source, target]: ranges::views::zip(_sourceParameters, _targetParameters))
+		if (
+				source.abiType.size != target.abiType.size ||
+				source.abiType.type != target.abiType.type ||
+				source.abiType.fractionalDigits != target.abiType.fractionalDigits
+			)
 			{
-				if (
-					_a.abiType.size != _b.abiType.size ||
-					_a.abiType.type != _b.abiType.type
-				)
-				{
-					_errorReporter.warning("Type or size of parameter(s) does not match.");
-					_b = _a;
-				}
-			},
-			_1,
-			_2
-		)
-	);
+				_errorReporter.warning("Type or size of parameter(s) does not match.");
+				target = source;
+			}
 }
 
 solidity::frontend::test::ParameterList ContractABIUtils::preferredParameters(
@@ -291,8 +307,8 @@ solidity::frontend::test::ParameterList ContractABIUtils::preferredParameters(
 	{
 		_errorReporter.warning(
 			"Encoding does not match byte range. The call returned " +
-			to_string(_bytes.size()) + " bytes, but " +
-			to_string(encodingSize(_targetParameters)) + " bytes were expected."
+			std::to_string(_bytes.size()) + " bytes, but " +
+			std::to_string(encodingSize(_targetParameters)) + " bytes were expected."
 		);
 		return _sourceParameters;
 	}
@@ -313,20 +329,34 @@ solidity::frontend::test::ParameterList ContractABIUtils::defaultParameters(size
 	return parameters;
 }
 
-solidity::frontend::test::ParameterList ContractABIUtils::failureParameters(bytes const _bytes)
+solidity::frontend::test::ParameterList ContractABIUtils::failureParameters(bytes const& _bytes)
 {
-	ParameterList parameters;
+	if (_bytes.empty())
+		return {};
+	else if (_bytes.size() < 4)
+		return {Parameter{bytes(), "", ABIType{ABIType::HexString, ABIType::AlignNone, _bytes.size()}, FormatInfo{}}};
+	else
+	{
+		ParameterList parameters;
+		parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::HexString, ABIType::AlignNone, 4}, FormatInfo{}});
 
-	parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::HexString, ABIType::AlignNone, 4}, FormatInfo{}});
-	parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::Hex}, FormatInfo{}});
-	parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::UnsignedDec}, FormatInfo{}});
-
-	/// If _bytes contains at least a 1 byte message (function selector + tail pointer + message length + message)
-	/// append an additional string parameter to represent that message.
-	if (_bytes.size() > 68)
-		parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::String}, FormatInfo{}});
-
-	return parameters;
+		uint64_t selector = fromBigEndian<uint64_t>(bytes{_bytes.begin(), _bytes.begin() + 4});
+		if (selector == selectorFromSignatureU32("Panic(uint256)"))
+			parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::Hex}, FormatInfo{}});
+		else if (selector == selectorFromSignatureU32("Error(string)"))
+		{
+			parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::Hex}, FormatInfo{}});
+			parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::UnsignedDec}, FormatInfo{}});
+			/// If _bytes contains at least a 1 byte message (function selector + tail pointer + message length + message)
+			/// append an additional string parameter to represent that message.
+			if (_bytes.size() > 68)
+				parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::String}, FormatInfo{}});
+		}
+		else
+			for (size_t i = 4; i < _bytes.size(); i += 32)
+				parameters.push_back(Parameter{bytes(), "", ABIType{ABIType::HexString, ABIType::AlignNone, 32}, FormatInfo{}});
+		return parameters;
+	}
 }
 
 size_t ContractABIUtils::encodingSize(

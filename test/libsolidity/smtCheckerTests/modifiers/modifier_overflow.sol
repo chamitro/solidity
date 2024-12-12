@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	uint x;
@@ -14,5 +12,7 @@ contract C
 		x = x + 1;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 2661: (145-150): Overflow (resulting value larger than 2**256 - 1) happens here
+// Info 1391: CHC: 2 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

@@ -14,87 +14,233 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
- * @author Christian <c@ethdev.com>
- * @date 2014
  * Formatting functions for errors referencing positions and locations in the source.
  */
 
 #include <liblangutil/SourceReferenceFormatter.h>
-#include <liblangutil/Scanner.h>
 #include <liblangutil/Exceptions.h>
+#include <liblangutil/CharStream.h>
+#include <liblangutil/CharStreamProvider.h>
+#include <libsolutil/UTF8.h>
+#include <iomanip>
+#include <string_view>
+#include <variant>
 
-using namespace std;
 using namespace solidity;
-using namespace solidity::util;
 using namespace solidity::langutil;
+using namespace solidity::util;
+using namespace solidity::util::formatting;
 
-void SourceReferenceFormatter::printSourceLocation(SourceLocation const* _location)
+namespace
 {
-	printSourceLocation(SourceReferenceExtractor::extract(_location));
+
+std::string replaceNonTabs(std::string_view _utf8Input, char _filler)
+{
+	std::string output;
+	for (char const c: _utf8Input)
+		if ((c & 0xc0) != 0x80)
+			output.push_back(c == '\t' ? '\t' : _filler);
+	return output;
+}
+
+}
+
+std::string SourceReferenceFormatter::formatErrorInformation(Error const& _error, CharStream const& _charStream)
+{
+	return formatErrorInformation(
+		_error,
+		SingletonCharStreamProvider(_charStream)
+	);
+}
+
+char const* SourceReferenceFormatter::errorTextColor(Error::Severity _severity)
+{
+	switch (_severity)
+	{
+	case Error::Severity::Error: return RED;
+	case Error::Severity::Warning: return YELLOW;
+	case Error::Severity::Info: return WHITE;
+	}
+	util::unreachable();
+}
+
+char const* SourceReferenceFormatter::errorHighlightColor(Error::Severity _severity)
+{
+	switch (_severity)
+	{
+	case Error::Severity::Error: return RED_BACKGROUND;
+	case Error::Severity::Warning: return ORANGE_BACKGROUND_256;
+	case Error::Severity::Info: return GRAY_BACKGROUND;
+	}
+	util::unreachable();
+}
+
+AnsiColorized SourceReferenceFormatter::normalColored() const
+{
+	return AnsiColorized(m_stream, m_colored, {WHITE});
+}
+
+AnsiColorized SourceReferenceFormatter::frameColored() const
+{
+	return AnsiColorized(m_stream, m_colored, {BOLD, BLUE});
+}
+
+AnsiColorized SourceReferenceFormatter::errorColored(std::ostream& _stream, bool _colored, Error::Severity _severity)
+{
+	return AnsiColorized(_stream, _colored, {BOLD, errorTextColor(_severity)});
+}
+
+AnsiColorized SourceReferenceFormatter::messageColored(std::ostream& _stream, bool _colored)
+{
+	return AnsiColorized(_stream, _colored, {BOLD, WHITE});
+}
+
+AnsiColorized SourceReferenceFormatter::secondaryColored() const
+{
+	return AnsiColorized(m_stream, m_colored, {BOLD, CYAN});
+}
+
+AnsiColorized SourceReferenceFormatter::highlightColored() const
+{
+	return AnsiColorized(m_stream, m_colored, {YELLOW});
+}
+
+AnsiColorized SourceReferenceFormatter::diagColored() const
+{
+	return AnsiColorized(m_stream, m_colored, {BOLD, YELLOW});
 }
 
 void SourceReferenceFormatter::printSourceLocation(SourceReference const& _ref)
 {
-	if (_ref.position.line < 0)
+	if (_ref.sourceName.empty())
 		return; // Nothing we can print here
+
+	if (_ref.position.line < 0)
+	{
+		frameColored() << "-->";
+		m_stream << ' ' << _ref.sourceName << '\n';
+		return; // No line available, nothing else to print
+	}
+
+	std::string line = std::to_string(_ref.position.line + 1); // one-based line number as string
+	std::string leftpad = std::string(line.size(), ' ');
+
+	// line 0: source name
+	m_stream << leftpad;
+	frameColored() << "-->";
+	m_stream << ' ' << _ref.sourceName << ':' << line << ':' << (_ref.position.column + 1) << ":\n";
+
+	std::string_view text = _ref.text;
+
+	if (m_charStreamProvider.charStream(_ref.sourceName).isImportedFromAST())
+		return;
 
 	if (!_ref.multiline)
 	{
-		m_stream << _ref.text << endl;
+		size_t const locationLength = static_cast<size_t>(_ref.endColumn - _ref.startColumn);
 
-		// mark the text-range like this: ^-----^
-		for_each(
-			_ref.text.cbegin(),
-			_ref.text.cbegin() + _ref.startColumn,
-			[this](char ch) { m_stream << (ch == '\t' ? '\t' : ' '); }
+		// line 1:
+		m_stream << leftpad << ' ';
+		frameColored() << '|';
+		m_stream << '\n';
+
+		// line 2:
+		frameColored() << line << " |";
+
+		m_stream << ' ' << text.substr(0, static_cast<size_t>(_ref.startColumn));
+		highlightColored() << text.substr(static_cast<size_t>(_ref.startColumn), locationLength);
+		m_stream << text.substr(static_cast<size_t>(_ref.endColumn)) << '\n';
+
+		// line 3:
+		m_stream << leftpad << ' ';
+		frameColored() << '|';
+
+		m_stream << ' ' << replaceNonTabs(text.substr(0, static_cast<size_t>(_ref.startColumn)), ' ');
+		diagColored() << (
+			locationLength == 0 ?
+			"^" :
+			replaceNonTabs(text.substr(static_cast<size_t>(_ref.startColumn), locationLength), '^')
 		);
-		m_stream << "^";
-		if (_ref.endColumn > _ref.startColumn + 2)
-			m_stream << string(static_cast<size_t>(_ref.endColumn - _ref.startColumn - 2), '-');
-		if (_ref.endColumn > _ref.startColumn + 1)
-			m_stream << "^";
-		m_stream << endl;
+		m_stream << '\n';
 	}
 	else
-		m_stream <<
-			_ref.text <<
-			endl <<
-			string(static_cast<size_t>(_ref.startColumn), ' ') <<
-			"^ (Relevant source part starts here and spans across multiple lines)." <<
-			endl;
+	{
+		// line 1:
+		m_stream << leftpad << ' ';
+		frameColored() << '|';
+		m_stream << '\n';
+
+		// line 2:
+		frameColored() << line << " |";
+		m_stream << ' ' << text.substr(0, static_cast<size_t>(_ref.startColumn));
+		highlightColored() << text.substr(static_cast<size_t>(_ref.startColumn)) << '\n';
+
+		// line 3:
+		m_stream << leftpad << ' ';
+		frameColored() << '|';
+		m_stream << ' ' << replaceNonTabs(text.substr(0, static_cast<size_t>(_ref.startColumn)), ' ');
+		diagColored() << "^ (Relevant source part starts here and spans across multiple lines).";
+		m_stream << '\n';
+	}
 }
 
-void SourceReferenceFormatter::printSourceName(SourceReference const& _ref)
+void SourceReferenceFormatter::printPrimaryMessage(
+	std::ostream& _stream,
+	std::string _message,
+	std::variant<Error::Type, Error::Severity> _typeOrSeverity,
+	std::optional<ErrorId> _errorId,
+	bool _colored,
+	bool _withErrorIds
+)
 {
-	if (_ref.position.line != -1)
-		m_stream << _ref.sourceName << ":" << (_ref.position.line + 1) << ":" << (_ref.position.column + 1) << ": ";
-	else if (!_ref.sourceName.empty())
-		m_stream << _ref.sourceName << ": ";
-}
+	errorColored(_stream, _colored, Error::errorSeverityOrType(_typeOrSeverity)) << Error::formatTypeOrSeverity(_typeOrSeverity);
 
-void SourceReferenceFormatter::printExceptionInformation(util::Exception const& _exception, std::string const& _category)
-{
-	printExceptionInformation(SourceReferenceExtractor::extract(_exception, _category));
-}
+	if (_withErrorIds && _errorId.has_value())
+		errorColored(_stream, _colored, Error::errorSeverityOrType(_typeOrSeverity)) << " (" << _errorId.value().error << ")";
 
-void SourceReferenceFormatter::printErrorInformation(Error const& _error)
-{
-	printExceptionInformation(SourceReferenceExtractor::extract(_error));
+	messageColored(_stream, _colored) << ": " << _message << '\n';
 }
 
 void SourceReferenceFormatter::printExceptionInformation(SourceReferenceExtractor::Message const& _msg)
 {
-	printSourceName(_msg.primary);
-
-	m_stream << _msg.category << ": " << _msg.primary.message << endl;
-
+	printPrimaryMessage(m_stream, _msg.primary.message, _msg._typeOrSeverity, _msg.errorId, m_colored, m_withErrorIds);
 	printSourceLocation(_msg.primary);
 
-	for (auto const& ref: _msg.secondary)
+	for (auto const& secondary: _msg.secondary)
 	{
-		printSourceName(ref);
-		m_stream << ref.message << endl;
-		printSourceLocation(ref);
+		secondaryColored() << "Note";
+		messageColored() << ":" << (secondary.message.empty() ? "" : (" " + secondary.message)) << '\n';
+		printSourceLocation(secondary);
 	}
+
+	m_stream << '\n';
+}
+
+void SourceReferenceFormatter::printExceptionInformation(util::Exception const& _exception, Error::Type _type)
+{
+	printExceptionInformation(SourceReferenceExtractor::extract(m_charStreamProvider, _exception, _type));
+}
+
+void SourceReferenceFormatter::printExceptionInformation(util::Exception const& _exception, Error::Severity _severity)
+{
+	printExceptionInformation(SourceReferenceExtractor::extract(m_charStreamProvider, _exception, _severity));
+}
+
+void SourceReferenceFormatter::printErrorInformation(ErrorList const& _errors)
+{
+	for (auto const& error: _errors)
+		printErrorInformation(*error);
+}
+
+void SourceReferenceFormatter::printErrorInformation(Error const& _error)
+{
+	SourceReferenceExtractor::Message message =
+		SourceReferenceExtractor::extract(
+			m_charStreamProvider,
+			_error,
+			Error::errorSeverity(_error.type())
+		);
+	printExceptionInformation(message);
 }

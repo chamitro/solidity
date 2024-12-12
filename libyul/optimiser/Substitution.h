@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Specific AST copier that replaces certain identifiers with expressions.
  */
@@ -21,7 +22,7 @@
 #pragma once
 
 #include <libyul/optimiser/ASTCopier.h>
-#include <libyul/YulString.h>
+#include <libyul/YulName.h>
 
 #include <map>
 
@@ -34,13 +35,13 @@ namespace solidity::yul
 class Substitution: public ASTCopier
 {
 public:
-	Substitution(std::map<YulString, Expression const*> const& _substitutions):
+	Substitution(std::map<YulName, Expression const*> const& _substitutions):
 		m_substitutions(_substitutions)
 	{}
 	Expression translate(Expression const& _expression) override;
 
 private:
-	std::map<YulString, Expression const*> const& m_substitutions;
+	std::map<YulName, Expression const*> const& m_substitutions;
 };
 
 }

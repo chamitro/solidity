@@ -1,10 +1,10 @@
 contract A1 {}
-contract B1 is A1 { constructor() public payable {} }
+contract B1 is A1 { constructor() payable {} }
 
-contract A2 { constructor() public {} }
-contract B2 is A2 { constructor() public payable {} }
+contract A2 { constructor() {} }
+contract B2 is A2 { constructor() payable {} }
 
-contract B3 { constructor() public payable {} }
+contract B3 { constructor() payable {} }
 
 contract C {
 	function f() public payable returns (bool) {
@@ -15,7 +15,11 @@ contract C {
 		return true;
 	}
 }
-// ====
-// compileViaYul: also
 // ----
 // f(), 2000 ether -> true
+// gas irOptimized: 117623
+// gas irOptimized code: 1800
+// gas legacy: 117821
+// gas legacy code: 4800
+// gas legacyOptimized: 117690
+// gas legacyOptimized code: 4800

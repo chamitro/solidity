@@ -11,9 +11,6 @@ contract C {
         this.f("", 2);
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // x() -> 0
 // a() -> 0

@@ -14,37 +14,40 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <libsolidity/analysis/ControlFlowBuilder.h>
-#include <libyul/AsmData.h>
+#include <libsolidity/ast/ASTUtils.h>
+#include <libyul/AST.h>
+#include <libyul/Utilities.h>
 #include <libyul/backends/evm/EVMDialect.h>
 
-using namespace solidity;
 using namespace solidity::langutil;
 using namespace solidity::frontend;
-using namespace std;
 
-ControlFlowBuilder::ControlFlowBuilder(CFG::NodeContainer& _nodeContainer, FunctionFlow const& _functionFlow):
+ControlFlowBuilder::ControlFlowBuilder(CFG::NodeContainer& _nodeContainer, FunctionFlow const& _functionFlow, ContractDefinition const* _contract):
 	m_nodeContainer(_nodeContainer),
 	m_currentNode(_functionFlow.entry),
 	m_returnNode(_functionFlow.exit),
 	m_revertNode(_functionFlow.revert),
-	m_transactionReturnNode(_functionFlow.transactionReturn)
+	m_transactionReturnNode(_functionFlow.transactionReturn),
+	m_contract(_contract)
 {
 }
 
 
-unique_ptr<FunctionFlow> ControlFlowBuilder::createFunctionFlow(
+std::unique_ptr<FunctionFlow> ControlFlowBuilder::createFunctionFlow(
 	CFG::NodeContainer& _nodeContainer,
-	FunctionDefinition const& _function
+	FunctionDefinition const& _function,
+	ContractDefinition const* _contract
 )
 {
-	auto functionFlow = make_unique<FunctionFlow>();
+	auto functionFlow = std::make_unique<FunctionFlow>();
 	functionFlow->entry = _nodeContainer.newNode();
 	functionFlow->exit = _nodeContainer.newNode();
 	functionFlow->revert = _nodeContainer.newNode();
 	functionFlow->transactionReturn = _nodeContainer.newNode();
-	ControlFlowBuilder builder(_nodeContainer, *functionFlow);
+	ControlFlowBuilder builder(_nodeContainer, *functionFlow, _contract);
 	builder.appendControlFlow(_function);
 
 	return functionFlow;
@@ -60,17 +63,53 @@ bool ControlFlowBuilder::visit(BinaryOperation const& _operation)
 		case Token::And:
 		{
 			visitNode(_operation);
+			solAssert(*_operation.annotation().userDefinedFunction == nullptr);
 			appendControlFlow(_operation.leftExpression());
 
 			auto nodes = splitFlow<2>();
 			nodes[0] = createFlow(nodes[0], _operation.rightExpression());
 			mergeFlow(nodes, nodes[1]);
-
 			return false;
 		}
 		default:
-			return ASTConstVisitor::visit(_operation);
+		{
+			if (*_operation.annotation().userDefinedFunction != nullptr)
+			{
+				visitNode(_operation);
+				_operation.leftExpression().accept(*this);
+				_operation.rightExpression().accept(*this);
+
+				m_currentNode->functionDefinition = *_operation.annotation().userDefinedFunction;
+
+				auto nextNode = newLabel();
+
+				connect(m_currentNode, nextNode);
+				m_currentNode = nextNode;
+				return false;
+			}
+		}
 	}
+	return ASTConstVisitor::visit(_operation);
+}
+
+bool ControlFlowBuilder::visit(UnaryOperation const& _operation)
+{
+	solAssert(!!m_currentNode);
+
+	if (*_operation.annotation().userDefinedFunction != nullptr)
+	{
+		visitNode(_operation);
+		_operation.subExpression().accept(*this);
+		m_currentNode->functionDefinition = *_operation.annotation().userDefinedFunction;
+
+		auto nextNode = newLabel();
+
+		connect(m_currentNode, nextNode);
+		m_currentNode = nextNode;
+		return false;
+	}
+
+	return ASTConstVisitor::visit(_operation);
 }
 
 bool ControlFlowBuilder::visit(Conditional const& _conditional)
@@ -235,6 +274,16 @@ bool ControlFlowBuilder::visit(Throw const& _throw)
 	return false;
 }
 
+bool ControlFlowBuilder::visit(RevertStatement const& _revert)
+{
+	solAssert(!!m_currentNode, "");
+	solAssert(!!m_revertNode, "");
+	visitNode(_revert);
+	connect(m_currentNode, m_revertNode);
+	m_currentNode = newLabel();
+	return false;
+}
+
 bool ControlFlowBuilder::visit(PlaceholderStatement const&)
 {
 	solAssert(!!m_currentNode, "");
@@ -249,6 +298,7 @@ bool ControlFlowBuilder::visit(PlaceholderStatement const&)
 
 bool ControlFlowBuilder::visit(FunctionCall const& _functionCall)
 {
+	solAssert(!!m_revertNode, "");
 	solAssert(!!m_currentNode, "");
 	solAssert(!!_functionCall.expression().annotation().type, "");
 
@@ -256,24 +306,42 @@ bool ControlFlowBuilder::visit(FunctionCall const& _functionCall)
 		switch (functionType->kind())
 		{
 			case FunctionType::Kind::Revert:
-				solAssert(!!m_revertNode, "");
 				visitNode(_functionCall);
 				_functionCall.expression().accept(*this);
 				ASTNode::listAccept(_functionCall.arguments(), *this);
+
 				connect(m_currentNode, m_revertNode);
+
 				m_currentNode = newLabel();
 				return false;
 			case FunctionType::Kind::Require:
 			case FunctionType::Kind::Assert:
 			{
-				solAssert(!!m_revertNode, "");
 				visitNode(_functionCall);
 				_functionCall.expression().accept(*this);
 				ASTNode::listAccept(_functionCall.arguments(), *this);
+
 				connect(m_currentNode, m_revertNode);
+
 				auto nextNode = newLabel();
+
 				connect(m_currentNode, nextNode);
 				m_currentNode = nextNode;
+				return false;
+			}
+			case FunctionType::Kind::Internal:
+			{
+				visitNode(_functionCall);
+				_functionCall.expression().accept(*this);
+				ASTNode::listAccept(_functionCall.arguments(), *this);
+
+				m_currentNode->functionDefinition = ASTNode::resolveFunctionCall(_functionCall, m_contract);
+
+				auto nextNode = newLabel();
+
+				connect(m_currentNode, nextNode);
+				m_currentNode = nextNode;
+
 				return false;
 			}
 			default:
@@ -284,15 +352,29 @@ bool ControlFlowBuilder::visit(FunctionCall const& _functionCall)
 
 bool ControlFlowBuilder::visit(ModifierInvocation const& _modifierInvocation)
 {
+	solAssert(m_contract, "Free functions cannot have modifiers");
+
 	if (auto arguments = _modifierInvocation.arguments())
 		for (auto& argument: *arguments)
 			appendControlFlow(*argument);
 
 	auto modifierDefinition = dynamic_cast<ModifierDefinition const*>(
-		_modifierInvocation.name()->annotation().referencedDeclaration
+		_modifierInvocation.name().annotation().referencedDeclaration
 	);
-	if (!modifierDefinition) return false;
-	solAssert(!!modifierDefinition, "");
+
+	if (!modifierDefinition)
+		return false;
+
+	VirtualLookup const& requiredLookup = *_modifierInvocation.name().annotation().requiredLookup;
+
+	if (requiredLookup == VirtualLookup::Virtual)
+		modifierDefinition = &modifierDefinition->resolveVirtual(*m_contract);
+	else
+		solAssert(requiredLookup == VirtualLookup::Static);
+
+	if (!modifierDefinition->isImplemented())
+		return false;
+
 	solAssert(!!m_returnNode, "");
 
 	m_placeholderEntry = newLabel();
@@ -325,8 +407,8 @@ bool ControlFlowBuilder::visit(FunctionDefinition const& _functionDefinition)
 
 	}
 
-	for (auto const& modifier: _functionDefinition.modifiers())
-		appendControlFlow(*modifier);
+	for (auto const& modifierInvocation: _functionDefinition.modifiers())
+		appendControlFlow(*modifierInvocation);
 
 	appendControlFlow(_functionDefinition.body());
 
@@ -370,7 +452,7 @@ bool ControlFlowBuilder::visit(InlineAssembly const& _inlineAssembly)
 	solAssert(!!m_currentNode && !m_inlineAssembly, "");
 
 	m_inlineAssembly = &_inlineAssembly;
-	(*this)(_inlineAssembly.operations());
+	(*this)(_inlineAssembly.operations().root());
 	m_inlineAssembly = nullptr;
 
 	return false;
@@ -379,7 +461,8 @@ bool ControlFlowBuilder::visit(InlineAssembly const& _inlineAssembly)
 void ControlFlowBuilder::visit(yul::Statement const& _statement)
 {
 	solAssert(m_currentNode && m_inlineAssembly, "");
-	m_currentNode->location = langutil::SourceLocation::smallestCovering(m_currentNode->location, locationOf(_statement));
+	solAssert(nativeLocationOf(_statement) == originLocationOf(_statement), "");
+	m_currentNode->location = langutil::SourceLocation::smallestCovering(m_currentNode->location, nativeLocationOf(_statement));
 	ASTWalker::visit(_statement);
 }
 
@@ -411,8 +494,7 @@ void ControlFlowBuilder::operator()(yul::Switch const& _switch)
 	}
 	mergeFlow(nodes);
 
-	bool hasDefault = util::contains_if(_switch.cases, [](yul::Case const& _case) { return !_case.value; });
-	if (!hasDefault)
+	if (!hasDefaultCase(_switch))
 		connect(beforeSwitch, m_currentNode);
 }
 
@@ -466,14 +548,15 @@ void ControlFlowBuilder::operator()(yul::Identifier const& _identifier)
 	solAssert(m_currentNode && m_inlineAssembly, "");
 	auto const& externalReferences = m_inlineAssembly->annotation().externalReferences;
 	if (externalReferences.count(&_identifier))
-	{
 		if (auto const* declaration = dynamic_cast<VariableDeclaration const*>(externalReferences.at(&_identifier).declaration))
+		{
+			solAssert(nativeLocationOf(_identifier) == originLocationOf(_identifier), "");
 			m_currentNode->variableOccurrences.emplace_back(
 				*declaration,
 				VariableOccurrence::Kind::Access,
-				_identifier.location
+				nativeLocationOf(_identifier)
 			);
-	}
+		}
 }
 
 void ControlFlowBuilder::operator()(yul::Assignment const& _assignment)
@@ -484,11 +567,14 @@ void ControlFlowBuilder::operator()(yul::Assignment const& _assignment)
 	for (auto const& variable: _assignment.variableNames)
 		if (externalReferences.count(&variable))
 			if (auto const* declaration = dynamic_cast<VariableDeclaration const*>(externalReferences.at(&variable).declaration))
+			{
+				solAssert(nativeLocationOf(variable) == originLocationOf(variable), "");
 				m_currentNode->variableOccurrences.emplace_back(
 					*declaration,
 					VariableOccurrence::Kind::Assignment,
-					variable.location
+					nativeLocationOf(variable)
 				);
+			}
 }
 
 void ControlFlowBuilder::operator()(yul::FunctionCall const& _functionCall)
@@ -497,15 +583,15 @@ void ControlFlowBuilder::operator()(yul::FunctionCall const& _functionCall)
 	solAssert(m_currentNode && m_inlineAssembly, "");
 	yul::ASTWalker::operator()(_functionCall);
 
-	if (auto const *builtinFunction = m_inlineAssembly->dialect().builtin(_functionCall.functionName.name))
-		if (builtinFunction->controlFlowSideEffects.terminates)
-		{
-			if (builtinFunction->controlFlowSideEffects.reverts)
-				connect(m_currentNode, m_revertNode);
-			else
-				connect(m_currentNode, m_transactionReturnNode);
+	if (auto const* builtinFunction = resolveBuiltinFunction(_functionCall.functionName, m_inlineAssembly->dialect()))
+	{
+		if (builtinFunction->controlFlowSideEffects.canTerminate)
+			connect(m_currentNode, m_transactionReturnNode);
+		if (builtinFunction->controlFlowSideEffects.canRevert)
+			connect(m_currentNode, m_revertNode);
+		if (!builtinFunction->controlFlowSideEffects.canContinue)
 			m_currentNode = newLabel();
-		}
+	}
 }
 
 void ControlFlowBuilder::operator()(yul::FunctionDefinition const&)
@@ -518,7 +604,7 @@ void ControlFlowBuilder::operator()(yul::FunctionDefinition const&)
 void ControlFlowBuilder::operator()(yul::Leave const&)
 {
 	// This has to be implemented, if we ever decide to visit functions.
-	solUnimplementedAssert(false, "");
+	solUnimplemented("");
 }
 
 bool ControlFlowBuilder::visit(VariableDeclaration const& _variableDeclaration)
@@ -568,11 +654,7 @@ bool ControlFlowBuilder::visit(VariableDeclarationStatement const& _variableDecl
 						solAssert(tupleExpression->components().size() > i, "");
 						expression = tupleExpression->components()[i].get();
 					}
-				while (auto tupleExpression = dynamic_cast<TupleExpression const*>(expression))
-					if (tupleExpression->components().size() == 1)
-						expression = tupleExpression->components().front().get();
-					else
-						break;
+				expression = resolveOuterUnaryTuples(expression);
 				m_currentNode->variableOccurrences.emplace_back(
 					*var,
 					VariableOccurrence::Kind::Assignment,

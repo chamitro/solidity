@@ -1,7 +1,7 @@
 // bug #1801
 contract test {
     enum ActionChoices { GoLeft, GoRight, GoStraight, Sit }
-    constructor(ActionChoices param) public {}
+    constructor(ActionChoices param) {}
     function ret() public returns (ActionChoices) {
         ActionChoices action = ActionChoices.GoLeft;
         return action;
@@ -11,8 +11,7 @@ contract test {
 //     :test
 // [
 //   {
-//     "inputs":
-//     [
+//     "inputs": [
 //       {
 //         "internalType": "enum test.ActionChoices",
 //         "name": "param",
@@ -25,8 +24,7 @@ contract test {
 //   {
 //     "inputs": [],
 //     "name": "ret",
-//     "outputs":
-//     [
+//     "outputs": [
 //       {
 //         "internalType": "enum test.ActionChoices",
 //         "name": "",

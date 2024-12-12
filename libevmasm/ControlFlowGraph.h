@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * @file ControlFlowGraph.h
  * @author Christian <c@ethdev.com>
@@ -23,11 +24,13 @@
 
 #pragma once
 
-#include <vector>
-#include <memory>
 #include <libsolutil/Common.h>
 #include <libsolutil/Assertions.h>
 #include <libevmasm/ExpressionClasses.h>
+
+#include <vector>
+#include <memory>
+#include <limits>
 
 namespace solidity::evmasm
 {

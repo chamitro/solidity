@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract C {
 	function f(int x, int y) public pure {
 		x = 7;
@@ -6,5 +5,7 @@ contract C {
 		assert(x / y == -3);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 1218: (106-125): Error trying to invoke SMT solver.
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

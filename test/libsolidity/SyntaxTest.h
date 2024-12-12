@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
@@ -38,23 +39,23 @@ class SyntaxTest: public AnalysisFramework, public solidity::test::CommonSyntaxT
 public:
 	static std::unique_ptr<TestCase> create(Config const& _config)
 	{
-		return std::make_unique<SyntaxTest>(_config.filename, _config.evmVersion, false);
+		return std::make_unique<SyntaxTest>(_config.filename, _config.evmVersion);
 	}
-	static std::unique_ptr<TestCase> createErrorRecovery(Config const& _config)
-	{
-		return std::make_unique<SyntaxTest>(_config.filename, _config.evmVersion, true);
-	}
-	SyntaxTest(std::string const& _filename, langutil::EVMVersion _evmVersion, bool _parserErrorRecovery = false);
-
-	TestResult run(std::ostream& _stream, std::string const& _linePrefix = "", bool _formatted = false) override;
+	SyntaxTest(
+		std::string const& _filename,
+		langutil::EVMVersion _evmVersion,
+		langutil::Error::Severity _minSeverity = langutil::Error::Severity::Info
+	);
 
 protected:
-	void setupCompiler();
+	void setupCompiler(CompilerStack& _compiler) override;
 	void parseAndAnalyze() override;
-	void filterObtainedErrors();
+	virtual void filterObtainedErrors();
 
-	bool m_optimiseYul = true;
-	bool m_parserErrorRecovery = false;
+	bool m_optimiseYul{};
+	std::string m_compileViaYul{};
+	langutil::Error::Severity m_minSeverity{};
+	PipelineStage m_stopAfter;
 };
 
 }

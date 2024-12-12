@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Small useful snippets for the optimiser.
  */
@@ -21,12 +22,46 @@
 #pragma once
 
 #include <libsolutil/Common.h>
-#include <libyul/AsmDataForward.h>
+#include <libyul/ASTForward.h>
+#include <libyul/Dialect.h>
+#include <libyul/YulName.h>
+#include <libyul/optimiser/ASTWalker.h>
+#include <liblangutil/EVMVersion.h>
+
+#include <optional>
+
+namespace solidity::evmasm
+{
+enum class Instruction: uint8_t;
+}
 
 namespace solidity::yul
 {
 
 /// Removes statements that are just empty blocks (non-recursive).
+/// If this is run on the outermost block, the FunctionGrouper should be run afterwards to keep
+/// the canonical form.
 void removeEmptyBlocks(Block& _block);
+
+/// Returns true if a given literal can not be used as an identifier.
+/// This includes Yul keywords and builtins of the given dialect.
+bool isRestrictedIdentifier(Dialect const& _dialect, YulName const& _identifier);
+
+/// Helper function that returns the instruction, if the `_name` is a BuiltinFunction
+std::optional<evmasm::Instruction> toEVMInstruction(Dialect const& _dialect, FunctionName const& _name);
+
+/// Helper function that returns the EVM version from a dialect.
+/// It returns the default EVM version if dialect is not an EVMDialect.
+langutil::EVMVersion const evmVersionFromDialect(Dialect const& _dialect);
+
+class StatementRemover: public ASTModifier
+{
+public:
+	explicit StatementRemover(std::set<Statement const*> const& _toRemove): m_toRemove(_toRemove) {}
+
+	void operator()(Block& _block) override;
+private:
+	std::set<Statement const*> const& m_toRemove;
+};
 
 }

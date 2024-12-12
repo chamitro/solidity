@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /** @file CommonIO.cpp
  * @author Gav Wood <i@gavwood.com>
  * @date 2014
@@ -22,10 +23,6 @@
 #include <libsolutil/CommonIO.h>
 #include <libsolutil/Assertions.h>
 
-#include <boost/filesystem.hpp>
-
-#include <iostream>
-#include <cstdlib>
 #include <fstream>
 #if defined(_WIN32)
 #include <windows.h>
@@ -34,52 +31,62 @@
 #include <termios.h>
 #endif
 
-using namespace std;
 using namespace solidity::util;
 
 namespace
 {
 
 template <typename T>
-inline T readFile(std::string const& _file)
+inline T readFile(boost::filesystem::path const& _file)
 {
+	assertThrow(boost::filesystem::exists(_file), FileNotFound, _file.string());
+
+	// ifstream does not always fail when the path leads to a directory. Instead it might succeed
+	// with tellg() returning a nonsensical value so that std::length_error gets raised in resize().
+	assertThrow(boost::filesystem::is_regular_file(_file), NotAFile, _file.string());
+
 	T ret;
 	size_t const c_elementSize = sizeof(typename T::value_type);
-	std::ifstream is(_file, std::ifstream::binary);
-	if (!is)
-		return ret;
+	std::ifstream is(_file.string(), std::ifstream::binary);
+
+	// Technically, this can still fail even though we checked above because FS content can change at any time.
+	assertThrow(is, FileNotFound, _file.string());
 
 	// get length of file:
 	is.seekg(0, is.end);
-	streamoff length = is.tellg();
+	std::streamoff length = is.tellg();
 	if (length == 0)
 		return ret; // do not read empty file (MSVC does not like it)
 	is.seekg(0, is.beg);
 
 	ret.resize((static_cast<size_t>(length) + c_elementSize - 1) / c_elementSize);
-	is.read(const_cast<char*>(reinterpret_cast<char const*>(ret.data())), length);
+	is.read(const_cast<char*>(reinterpret_cast<char const*>(ret.data())), static_cast<std::streamsize>(length));
 	return ret;
 }
 
 }
 
-string solidity::util::readFileAsString(string const& _file)
+std::string solidity::util::readFileAsString(boost::filesystem::path const& _file)
 {
-	return readFile<string>(_file);
+	return readFile<std::string>(_file);
 }
 
-string solidity::util::readStandardInput()
+std::string solidity::util::readUntilEnd(std::istream& _stdin)
 {
-	string ret;
-	while (!cin.eof())
-	{
-		string tmp;
-		// NOTE: this will read until EOF or NL
-		getline(cin, tmp);
-		ret.append(tmp);
-		ret.append("\n");
-	}
-	return ret;
+	std::ostringstream ss;
+	ss << _stdin.rdbuf();
+	return ss.str();
+}
+
+std::string solidity::util::readBytes(std::istream& _input, size_t _length)
+{
+	std::string output;
+	output.resize(_length);
+	_input.read(output.data(), static_cast<std::streamsize>(_length));
+	// If read() reads fewer bytes it sets failbit in addition to eofbit.
+	if (_input.fail())
+		output.resize(static_cast<size_t>(_input.gcount()));
+	return output;
 }
 
 #if defined(_WIN32)
@@ -127,17 +134,21 @@ private:
 int solidity::util::readStandardInputChar()
 {
 	DisableConsoleBuffering disableConsoleBuffering;
-	return cin.get();
+	return std::cin.get();
 }
 
-string solidity::util::absolutePath(string const& _path, string const& _reference)
+std::string solidity::util::absolutePath(std::string const& _path, std::string const& _reference)
 {
 	boost::filesystem::path p(_path);
 	// Anything that does not start with `.` is an absolute path.
 	if (p.begin() == p.end() || (*p.begin() != "." && *p.begin() != ".."))
 		return _path;
 	boost::filesystem::path result(_reference);
-	result.remove_filename();
+
+	// If filename is "/", then remove_filename() throws.
+	// See: https://github.com/boostorg/filesystem/issues/176
+	if (result.filename() != boost::filesystem::path("/"))
+		result.remove_filename();
 	for (boost::filesystem::path::iterator it = p.begin(); it != p.end(); ++it)
 		if (*it == "..")
 			result = result.parent_path();
@@ -146,6 +157,6 @@ string solidity::util::absolutePath(string const& _path, string const& _referenc
 	return result.generic_string();
 }
 
-string solidity::util::sanitizePath(string const& _path) {
+std::string solidity::util::sanitizePath(std::string const& _path) {
 	return boost::filesystem::path(_path).generic_string();
 }

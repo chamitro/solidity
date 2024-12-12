@@ -14,12 +14,18 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 #include <test/libsolidity/SyntaxTest.h>
 
 #include <libsmtutil/SolverInterface.h>
+
+#include <libsolidity/formal/ModelChecker.h>
+
+#include <libsolidity/interface/SMTSolverCommand.h>
+#include <libsolidity/interface/UniversalCallback.h>
 
 #include <string>
 
@@ -31,17 +37,44 @@ class SMTCheckerTest: public SyntaxTest
 public:
 	static std::unique_ptr<TestCase> create(Config const& _config)
 	{
-		return std::make_unique<SMTCheckerTest>(_config.filename, _config.evmVersion);
+		return std::make_unique<SMTCheckerTest>(_config.filename);
 	}
-	SMTCheckerTest(std::string const& _filename, langutil::EVMVersion _evmVersion);
+	explicit SMTCheckerTest(std::string const& _filename);
 
-	TestResult run(std::ostream& _stream, std::string const& _linePrefix = "", bool _formatted = false) override;
+	void setupCompiler(CompilerStack& _compiler) override;
+	void filterObtainedErrors() override;
+
+	void printUpdatedExpectations(std::ostream& _stream, std::string const& _linePrefix) const override;
 
 protected:
-	/// This is set via option SMTSolvers in the test.
-	/// The possible options are `all`, `z3`, `cvc4`, `none`,
-	/// where if none is given the default used option is `all`.
-	smtutil::SMTSolverChoice m_enabledSolvers;
+	std::unique_ptr<CompilerStack> createStack() const override;
+
+	/*
+	Options that can be set in the test:
+	SMTEngine: `all`, `chc`, `bmc`, `none`, where the default is `all`.
+		Set in m_modelCheckerSettings.
+	SMTIgnoreCex: `yes`, `no`, where the default is `no`.
+		Set in m_ignoreCex.
+	SMTIgnoreInv: `yes`, `no`, where the default is `no`.
+		Set in m_modelCheckerSettings.
+	SMTShowProvedSafe: `yes`, `no`, where the default is `no`.
+		Set in m_modelCheckerSettings.
+	SMTShowUnproved: `yes`, `no`, where the default is `yes`.
+		Set in m_modelCheckerSettings.
+	SMTSolvers: `all`, `cvc5`, `z3`, `eld`, `none`, where the default is `z3`.
+		Set in m_modelCheckerSettings.
+	BMCLoopIterations: number of loop iterations for BMC engine, the default is 1.
+		Set in m_modelCheckerSettings.
+	*/
+
+	ModelCheckerSettings m_modelCheckerSettings;
+
+	bool m_ignoreCex = false;
+
+	std::vector<SyntaxTestError> m_unfilteredErrorList;
+
+	SMTSolverCommand smtCommand;
+	UniversalCallback universalCallback;
 };
 
 }

@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f(uint16 x, uint16 y) public pure {
@@ -8,5 +6,7 @@ contract C
 		assert(z < 100_000);
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 1218: (130-149): Error trying to invoke SMT solver.
+// Info 1391: CHC: 2 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

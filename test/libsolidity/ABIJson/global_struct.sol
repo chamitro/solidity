@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 struct S { uint a; }
 contract C {
     function f(S calldata s) external view {}
@@ -8,11 +8,9 @@ contract C {
 //     :C
 // [
 //   {
-//     "inputs":
-//     [
+//     "inputs": [
 //       {
-//         "components":
-//         [
+//         "components": [
 //           {
 //             "internalType": "uint256",
 //             "name": "a",
@@ -30,11 +28,9 @@ contract C {
 //     "type": "function"
 //   },
 //   {
-//     "inputs":
-//     [
+//     "inputs": [
 //       {
-//         "components":
-//         [
+//         "components": [
 //           {
 //             "internalType": "uint256",
 //             "name": "a",

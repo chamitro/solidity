@@ -1,4 +1,4 @@
-pragma experimental ABIEncoderV2;
+pragma abicoder               v2;
 
 contract C {
   uint[][2] tmp_i;
@@ -6,4 +6,4 @@ contract C {
 }
 
 // ----
-// UnimplementedFeatureError: Copying nested calldata dynamic arrays to storage is not implemented in the old code generator.
+// UnimplementedFeatureError 1834: Copying nested calldata dynamic arrays to storage is not implemented in the old code generator.

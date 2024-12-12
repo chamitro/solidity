@@ -1,79 +1,69 @@
 {
   "absolutePath": "a",
-  "exportedSymbols":
-  {
-    "C":
-    [
+  "exportedSymbols": {
+    "C": [
       4
     ]
   },
   "id": 5,
-  "license": null,
   "nodeType": "SourceUnit",
-  "nodes":
-  [
+  "nodes": [
     {
       "abstract": false,
       "baseContracts": [],
+      "canonicalName": "C",
       "contractDependencies": [],
       "contractKind": "contract",
-      "documentation": null,
       "fullyImplemented": true,
       "id": 4,
-      "linearizedBaseContracts":
-      [
+      "linearizedBaseContracts": [
         4
       ],
       "name": "C",
+      "nameLocation": "9:1:1",
       "nodeType": "ContractDefinition",
-      "nodes":
-      [
+      "nodes": [
         {
           "constant": false,
           "id": 3,
           "mutability": "mutable",
           "name": "i",
+          "nameLocation": "20:1:1",
           "nodeType": "VariableDeclaration",
-          "overrides": null,
           "scope": 4,
           "src": "13:8:1",
           "stateVariable": true,
           "storageLocation": "default",
-          "typeDescriptions":
-          {
+          "typeDescriptions": {
             "typeIdentifier": "t_array$_t_uint256_$dyn_storage",
             "typeString": "uint256[]"
           },
-          "typeName":
-          {
-            "baseType":
-            {
+          "typeName": {
+            "baseType": {
               "id": 1,
               "name": "uint",
               "nodeType": "ElementaryTypeName",
               "src": "13:4:1",
-              "typeDescriptions":
-              {
+              "typeDescriptions": {
                 "typeIdentifier": "t_uint256",
                 "typeString": "uint256"
               }
             },
             "id": 2,
-            "length": null,
             "nodeType": "ArrayTypeName",
             "src": "13:6:1",
-            "typeDescriptions":
-            {
+            "typeDescriptions": {
               "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
               "typeString": "uint256[]"
             }
           },
-          "value": null,
           "visibility": "internal"
         }
       ],
       "scope": 5,
-      "src": "0:24:1"
+      "src": "0:24:1",
+      "usedErrors": [],
+      "usedEvents": []
     }
   ],
   "src": "0:25:1"

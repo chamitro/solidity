@@ -5,7 +5,5 @@ contract C {
         return x == msg.sender;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // test() -> true

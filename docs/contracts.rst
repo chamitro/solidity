@@ -20,10 +20,13 @@ There is no "cron" concept in Ethereum to call a function at a particular event 
 
 .. include:: contracts/function-modifiers.rst
 
+.. include:: contracts/transient-storage.rst
+
 .. include:: contracts/constant-state-variables.rst
 .. include:: contracts/functions.rst
 
 .. include:: contracts/events.rst
+.. include:: contracts/errors.rst
 
 .. include:: contracts/inheritance.rst
 

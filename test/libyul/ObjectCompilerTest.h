@@ -14,10 +14,13 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 #include <test/TestCase.h>
+
+#include <libsolidity/interface/OptimiserSettings.h>
 
 namespace solidity::langutil
 {
@@ -35,7 +38,7 @@ struct Block;
 namespace solidity::yul::test
 {
 
-class ObjectCompilerTest: public solidity::frontend::test::TestCase
+class ObjectCompilerTest: public solidity::frontend::test::EVMVersionRestrictedTestCase
 {
 public:
 	static std::unique_ptr<TestCase> create(Config const& _config)
@@ -51,9 +54,7 @@ private:
 	bool parse(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted);
 	void disambiguate();
 
-	static void printErrors(std::ostream& _stream, langutil::ErrorList const& _errors);
-
-	bool m_optimize = false;
+	frontend::OptimisationPreset m_optimisationPreset;
 };
 
 }

@@ -1,16 +1,16 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	function f(uint8 x) public pure returns (uint) {
 		x = 0;
-		uint8 y = x - 1;
+		uint8 y;
+		unchecked { y = x - 1; }
 		assert(y == 255);
-		y = x - 255;
+		unchecked { y = x - 255; }
 		assert(y == 1);
 		return y;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
-// Warning 4144: (117-122): Underflow (resulting value less than 0) happens here
-// Warning 4144: (150-157): Underflow (resulting value less than 0) happens here
+// Info 1391: CHC: 2 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

@@ -15,7 +15,7 @@ contract helper {
 }
 contract test {
     helper h;
-    constructor() public payable {
+    constructor() payable {
         h = new helper();
     }
 
@@ -35,11 +35,14 @@ contract test {
         myBal = address(this).balance;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // constructor(), 20 wei ->
+// gas irOptimized: 120218
+// gas irOptimized code: 132000
+// gas legacy: 130583
+// gas legacy code: 261200
+// gas legacyOptimized: 121069
+// gas legacyOptimized code: 147000
 // sendAmount(uint256): 5 -> 5
 // outOfGas() -> FAILURE # call to helper should not succeed but amount should be transferred anyway #
 // checkState() -> false, 15

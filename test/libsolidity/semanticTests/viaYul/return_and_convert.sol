@@ -5,7 +5,5 @@ contract C {
         return b;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f() -> 255

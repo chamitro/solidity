@@ -14,18 +14,20 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * String abstraction that avoids copies.
  */
 
 #pragma once
 
-#include <boost/noncopyable.hpp>
+#include <fmt/format.h>
 
 #include <unordered_map>
 #include <memory>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <functional>
 
 namespace solidity::yul
@@ -50,7 +52,7 @@ public:
 		return inst;
 	}
 
-	Handle stringToHandle(std::string const& _string)
+	Handle stringToHandle(std::string_view const _string)
 	{
 		if (_string.empty())
 			return { 0, emptyHash() };
@@ -65,9 +67,9 @@ public:
 
 		return Handle{id, h};
 	}
-	std::string const& idToString(size_t _id) const	{ return *m_strings.at(_id); }
+	std::string const& idToString(size_t _id) const { return *m_strings.at(_id); }
 
-	static std::uint64_t hash(std::string const& v)
+	static std::uint64_t hash(std::string_view const v)
 	{
 		// FNV hash - can be replaced by a better one, e.g. xxhash64
 		std::uint64_t hash = emptyHash();
@@ -125,7 +127,7 @@ class YulString
 {
 public:
 	YulString() = default;
-	explicit YulString(std::string const& _s): m_handle(YulStringRepository::instance().stringToHandle(_s)) {}
+	explicit YulString(std::string_view const _s): m_handle(YulStringRepository::instance().stringToHandle(_s)) {}
 	YulString(YulString const&) = default;
 	YulString(YulString&&) = default;
 	YulString& operator=(YulString const&) = default;
@@ -161,9 +163,20 @@ private:
 	YulStringRepository::Handle m_handle{ 0, YulStringRepository::emptyHash() };
 };
 
-inline YulString operator "" _yulstring(char const* _string, std::size_t _size)
+inline YulString operator "" _yulname(char const* _string, std::size_t _size)
 {
 	return YulString(std::string(_string, _size));
 }
 
+}
+
+namespace std
+{
+template<> struct hash<solidity::yul::YulString>
+{
+	size_t operator()(solidity::yul::YulString const& x) const
+	{
+		return static_cast<size_t>(x.hash());
+	}
+};
 }

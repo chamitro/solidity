@@ -1,7 +1,7 @@
 contract BaseBase {
     uint256 m_a;
 
-    constructor(uint256 a) public {
+    constructor(uint256 a) {
         m_a = a;
     }
 
@@ -27,8 +27,5 @@ contract Derived is Base {
         return 2;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // getA() -> 2

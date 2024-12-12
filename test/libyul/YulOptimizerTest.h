@@ -14,22 +14,14 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
 #include <test/TestCase.h>
 
-#include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/optimiser/NameDispenser.h>
-
-#include <libyul/YulString.h>
-
-#include <set>
-#include <memory>
-
 namespace solidity::langutil
 {
-class Scanner;
 class Error;
 using ErrorList = std::vector<std::shared_ptr<Error const>>;
 }
@@ -37,8 +29,8 @@ using ErrorList = std::vector<std::shared_ptr<Error const>>;
 namespace solidity::yul
 {
 struct AsmAnalysisInfo;
-struct Block;
-struct Dialect;
+class Object;
+class Dialect;
 }
 
 namespace solidity::yul::test
@@ -55,22 +47,16 @@ public:
 	explicit YulOptimizerTest(std::string const& _filename);
 
 	TestResult run(std::ostream& _stream, std::string const& _linePrefix = "", bool const _formatted = false) override;
-
 private:
-	bool parse(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted);
-	void disambiguate();
-	void updateContext();
-
-	static void printErrors(std::ostream& _stream, langutil::ErrorList const& _errors);
+	std::pair<std::shared_ptr<Object>, std::shared_ptr<AsmAnalysisInfo>> parse(
+		std::ostream& _stream, std::string const& _linePrefix, bool const _formatted, std::string const& _source
+	);
 
 	std::string m_optimizerStep;
 
 	Dialect const* m_dialect = nullptr;
-	std::set<YulString> m_reservedIdentifiers;
-	std::unique_ptr<NameDispenser> m_nameDispenser;
-	std::unique_ptr<OptimiserStepContext> m_context;
 
-	std::shared_ptr<Block> m_ast;
+	std::shared_ptr<Object> m_object;
 	std::shared_ptr<AsmAnalysisInfo> m_analysisInfo;
 };
 

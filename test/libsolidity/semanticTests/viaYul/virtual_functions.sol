@@ -23,8 +23,6 @@ contract C is X {
         x = 3;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // f() -> 3
 // f1() -> 3

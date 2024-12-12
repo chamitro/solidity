@@ -14,16 +14,18 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #include <test/tools/fuzzer_common.h>
 
-using namespace std;
+// Prototype as we can't use the FuzzerInterface.h header.
+extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
 
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
 	if (_size <= 250)
 	{
-		string input(reinterpret_cast<char const*>(_data), _size);
+		std::string input(reinterpret_cast<char const*>(_data), _size);
 		FuzzerUtil::testConstantOptimizer(input, /*quiet=*/true);
 	}
 	return 0;

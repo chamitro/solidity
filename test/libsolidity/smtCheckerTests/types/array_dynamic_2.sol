@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	uint[][] array;
@@ -9,3 +7,9 @@ contract C
 		assert(array[z][t] > 100);
 	}
 }
+// ====
+// SMTEngine: all
+// ----
+// Warning 6368: (98-106): CHC: Out of bounds access happens here.
+// Warning 6368: (98-109): CHC: Out of bounds access happens here.
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

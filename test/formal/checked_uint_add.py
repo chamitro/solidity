@@ -1,6 +1,7 @@
+from opcodes import GT, ADD
 from rule import Rule
-from opcodes import *
-from util import *
+from util import BVUnsignedMax, BVUnsignedUpCast
+from z3 import BitVec, BVAddNoOverflow, Not
 
 """
 Overflow checked unsigned integer addition.
@@ -23,13 +24,17 @@ while type_bits <= n_bits:
 	# cast to full n_bits values
 	X = BVUnsignedUpCast(X_short, n_bits)
 	Y = BVUnsignedUpCast(Y_short, n_bits)
+	sum_ = ADD(X, Y)
 
 	# Constants
 	maxValue = BVUnsignedMax(type_bits, n_bits)
 
 	# Overflow check in YulUtilFunction::overflowCheckedIntAddFunction
-	overflow_check = GT(X, SUB(maxValue, Y))
+	if type_bits == 256:
+		overflow_check = GT(X, sum_)
+	else:
+		overflow_check = GT(sum_, maxValue)
+
+	type_bits += 8
 
 	rule.check(overflow_check != 0, actual_overflow)
-
-	type_bits *= 2

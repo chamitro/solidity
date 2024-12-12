@@ -1,5 +1,7 @@
 .. index:: ! constant
 
+.. _constants:
+
 **************************************
 Constant and Immutable State Variables
 **************************************
@@ -9,33 +11,49 @@ In both cases, the variables cannot be modified after the contract has been cons
 For ``constant`` variables, the value has to be fixed at compile-time, while
 for ``immutable``, it can still be assigned at construction time.
 
-The compiler does not reserve a storage slot for these variables, and every occurrence is
-replaced by the respective value.
+It is also possible to define ``constant`` variables at the file level.
+
+Every occurrence of such a variable in the source is replaced by its underlying value
+and the compiler does not reserve a storage slot for it.
+It cannot be assigned a slot in transient storage using the ``transient`` keyword either.
+
+Compared to regular state variables, the gas costs of constant and immutable variables
+are much lower. For a constant variable, the expression assigned to it is copied to
+all the places where it is accessed and also re-evaluated each time. This allows for local
+optimizations. Immutable variables are evaluated once at construction time and their value
+is copied to all the places in the code where they are accessed. For these values,
+32 bytes are reserved, even if they would fit in fewer bytes. Due to this, constant values
+can sometimes be cheaper than immutable values.
 
 Not all types for constants and immutables are implemented at this time. The only supported types are
-`strings <strings>`_ (only for constants) and `value types <value-types>`_.
+:ref:`strings <strings>` (only for constants) and :ref:`value types <value-types>`.
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >0.6.4 <0.7.0;
+    pragma solidity ^0.8.21;
+
+    uint constant X = 32**22 + 8;
 
     contract C {
-        uint constant X = 32**22 + 8;
         string constant TEXT = "abc";
         bytes32 constant MY_HASH = keccak256("abc");
-        uint immutable decimals;
+        uint immutable decimals = 18;
         uint immutable maxBalance;
         address immutable owner = msg.sender;
 
-        constructor(uint _decimals, address _reference) public {
-            decimals = _decimals;
+        constructor(uint decimals_, address ref) {
+            if (decimals_ != 0)
+                // Immutables are only immutable when deployed.
+                // At construction time they can be assigned to any number of times.
+                decimals = decimals_;
+
             // Assignments to immutables can even access the environment.
-            maxBalance = _reference.balance;
+            maxBalance = ref.balance;
         }
 
-        function isBalanceTooHigh(address _other) public view returns (bool) {
-            return _other.balance > maxBalance;
+        function isBalanceTooHigh(address other) public view returns (bool) {
+            return other.balance > maxBalance;
         }
     }
 
@@ -45,7 +63,7 @@ Constant
 
 For ``constant`` variables, the value has to be a constant at compile time and it has to be
 assigned where the variable is declared. Any expression
-that accesses storage, blockchain data (e.g. ``now``, ``address(this).balance`` or
+that accesses storage, blockchain data (e.g. ``block.timestamp``, ``address(this).balance`` or
 ``block.number``) or
 execution data (``msg.value`` or ``gasleft()``) or makes calls to external contracts is disallowed. Expressions
 that might have a side-effect on memory allocation are allowed, but those that
@@ -61,13 +79,34 @@ Immutable
 =========
 
 Variables declared as ``immutable`` are a bit less restricted than those
-declared as ``constant``: Immutable variables can be assigned an arbitrary
-value in the constructor of the contract or at the point of their declaration.
-They cannot be read during construction time and can only be assigned once.
+declared as ``constant``: Immutable variables can be assigned a
+value at construction time.
+The value can be changed at any time before deployment and then it becomes permanent.
+
+One additional restriction is that immutables can only be assigned to inside expressions for which
+there is no possibility of being executed after creation.
+This excludes all modifier definitions and functions other than constructors.
+
+There are no restrictions on reading immutable variables.
+The read is even allowed to happen before the variable is written to for the first time because variables in
+Solidity always have a well-defined initial value.
+For this reason it is also allowed to never explicitly assign a value to an immutable.
+
+.. warning::
+    When accessing immutables at construction time, please keep the :ref:`initialization order
+    <state-variable-initialization-order>` in mind.
+    Even if you provide an explicit initializer, some expressions may end up being evaluated before
+    that initializer, especially when they are at a different level in inheritance hierarchy.
+
+.. note::
+    Before Solidity 0.8.21 initialization of immutable variables was more restrictive.
+    Such variables had to be initialized exactly once at construction time and could not be read
+    before then.
 
 The contract creation code generated by the compiler will modify the
 contract's runtime code before it is returned by replacing all references
-to immutables by the values assigned to the them. This is important if
+to immutables with the values assigned to them. This is important if
 you are comparing the
 runtime code generated by the compiler with the one actually stored in the
-blockchain.
+blockchain. The compiler outputs where these immutables are located in the deployed bytecode
+in the ``immutableReferences`` field of the :ref:`compiler JSON standard output <compiler-api>`.

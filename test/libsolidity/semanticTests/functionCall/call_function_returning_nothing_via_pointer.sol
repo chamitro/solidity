@@ -11,9 +11,6 @@ contract test {
         return flag;
     }
 }
-
-// ====
-// compileViaYul: also
 // ----
 // f() -> true
 // flag() -> true

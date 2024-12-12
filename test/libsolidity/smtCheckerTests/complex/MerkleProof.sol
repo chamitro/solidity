@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 /**
  * @title MerkleProof
  * @dev Merkle proof verification based on
@@ -32,9 +30,6 @@ library MerkleProof {
         return computedHash == root;
     }
 }
-
+// ====
+// SMTEngine: all
 // ----
-// Warning 8364: (988-991): Assertion checker does not yet implement type abi
-// Warning 4588: (988-1032): Assertion checker does not yet implement this type of function call.
-// Warning 8364: (1175-1178): Assertion checker does not yet implement type abi
-// Warning 4588: (1175-1219): Assertion checker does not yet implement this type of function call.

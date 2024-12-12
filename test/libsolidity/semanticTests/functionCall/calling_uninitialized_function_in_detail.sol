@@ -15,6 +15,5 @@ contract C {
         return 2;
     }
 }
-
 // ----
-// t() -> FAILURE
+// t() -> FAILURE, hex"4e487b71", 0x51

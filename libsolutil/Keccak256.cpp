@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /** @file SHA3.cpp
  * @author Gav Wood <i@gavwood.com>
  * @date 2014
@@ -22,11 +23,7 @@
 #include <libsolutil/Keccak256.h>
 
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
-
-using namespace std;
 
 namespace solidity::util
 {
@@ -38,7 +35,7 @@ namespace
  *
  * A single-file implementation of SHA-3 and SHAKE.
  *
- * Implementor: David Leon Gil
+ * implementer: David Leon Gil
  * License: CC0, attribution kindly requested. Blame taken too,
  * but not liability.
  */

@@ -30,8 +30,6 @@ contract C {
 		return (x < y);
 	}
 }
-// ====
-// compileViaYul: also
 // ----
 // eq() -> true
 // neq() -> false

@@ -1,7 +1,7 @@
 contract D {
     uint256 x;
 
-    constructor() public {
+    constructor() {
         x = 7;
     }
 
@@ -10,18 +10,18 @@ contract D {
     }
 }
 
-
 contract C {
     function test() public returns (uint256) {
-	D d = new D();
-	bytes32 hash;
-	assembly { hash := extcodehash(d) }
-	assert(hash == keccak256(type(D).runtimeCode));
-	return 42;
+        D d = new D();
+        bytes32 hash;
+        assembly { hash := extcodehash(d) }
+        assert(hash == keccak256(type(D).runtimeCode));
+        return 42;
     }
 }
-
 // ====
 // EVMVersion: >=constantinople
 // ----
 // test() -> 42
+// gas legacy: 76034
+// gas legacy code: 24200

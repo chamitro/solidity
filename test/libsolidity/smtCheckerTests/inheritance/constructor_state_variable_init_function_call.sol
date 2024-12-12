@@ -1,8 +1,6 @@
-pragma experimental SMTChecker;
-
 contract C {
 	uint x = f(2);
-	constructor () public {
+	constructor () {
 		assert(x == 2);
 	}
 
@@ -12,4 +10,7 @@ contract C {
 		return y;
 	}
 }
+// ====
+// SMTEngine: all
 // ----
+// Info 1391: CHC: 3 verification condition(s) proved safe! Enable the model checker option "show proved safe" to see all of them.

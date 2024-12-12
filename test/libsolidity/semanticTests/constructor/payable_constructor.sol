@@ -1,8 +1,5 @@
 contract C {
-    constructor() public payable {}
+    constructor() payable {}
 }
-
-// ====
-// compileViaYul: also
 // ----
 // constructor(), 27 wei ->

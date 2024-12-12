@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Classes that store locations of lvalues.
  */
@@ -39,7 +40,7 @@ struct IRLValue
 	{
 		VariableDeclaration const* variable = nullptr;
 	};
-	struct Storage
+	struct GenericStorage
 	{
 		std::string const slot;
 		/// unsigned: Used when the offset is known at compile time, uses optimized
@@ -54,6 +55,8 @@ struct IRLValue
 				return std::get<std::string>(offset);
 		}
 	};
+	struct Storage : public GenericStorage {};
+	struct TransientStorage : public GenericStorage {};
 	struct Memory
 	{
 		std::string const address;
@@ -63,7 +66,7 @@ struct IRLValue
 	{
 		std::vector<std::optional<IRLValue>> components;
 	};
-	std::variant<Stack, Immutable, Storage, Memory, Tuple> kind;
+	std::variant<Stack, Immutable, Storage, TransientStorage, Memory, Tuple> kind;
 };
 
 }

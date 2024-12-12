@@ -8,7 +8,7 @@ Contracts can be created "from outside" via Ethereum transactions or from within
 
 IDEs, such as `Remix <https://remix.ethereum.org/>`_, make the creation process seamless using UI elements.
 
-One way to create contracts programmatically on Ethereum is via the JavaScript API `web3.js <https://github.com/ethereum/web3.js>`_.
+One way to create contracts programmatically on Ethereum is via the JavaScript API `web3.js <https://github.com/web3/web3.js>`_.
 It has a function called `web3.eth.Contract <https://web3js.readthedocs.io/en/1.0/web3-eth-contract.html#new-contract>`_
 to facilitate contract creation.
 
@@ -32,10 +32,10 @@ If a contract wants to create another contract, the source code
 (and the binary) of the created contract has to be known to the creator.
 This means that cyclic creation dependencies are impossible.
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.4.22 <0.7.0;
+    pragma solidity >=0.4.22 <0.9.0;
 
 
     contract OwnedToken {
@@ -48,7 +48,7 @@ This means that cyclic creation dependencies are impossible.
 
         // This is the constructor which registers the
         // creator and the assigned name.
-        constructor(bytes32 _name) public {
+        constructor(bytes32 name_) {
             // State variables are accessed via their name
             // and not via e.g. `this.owner`. Functions can
             // be accessed directly or through `this.f`,
@@ -65,7 +65,7 @@ This means that cyclic creation dependencies are impossible.
             // no real way to verify that.
             // This does not create a new contract.
             creator = TokenCreator(msg.sender);
-            name = _name;
+            name = name_;
         }
 
         function changeName(bytes32 newName) public {

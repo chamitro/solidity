@@ -8,8 +8,6 @@ contract C {
         y = x;
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // or(uint256): 0 -> true, 0
 // and(uint256): 0 -> true, 8

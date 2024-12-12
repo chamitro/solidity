@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 /**
  * Unit tests for UTF-8 validation.
  */
@@ -25,22 +26,21 @@
 
 #include <boost/test/unit_test.hpp>
 
-using namespace std;
 
 namespace solidity::util::test
 {
 
-BOOST_AUTO_TEST_SUITE(UTF8)
+BOOST_AUTO_TEST_SUITE(UTF8, *boost::unit_test::label("nooptions"))
 
 namespace {
 
-bool isValidUTF8(string const& _value)
+bool isValidUTF8(std::string const& _value)
 {
 	size_t pos;
 	return validateUTF8(asString(fromHex(_value)), pos);
 }
 
-bool isInvalidUTF8(string const& _value, size_t _expectedPos)
+bool isInvalidUTF8(std::string const& _value, size_t _expectedPos)
 {
 	size_t pos;
 	if (validateUTF8(asString(fromHex(_value)), pos))
@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE(invalid)
 
 BOOST_AUTO_TEST_CASE(corpus)
 {
-	string source = R"(
+	std::string source = R"(
 κόσμε
 
 hélló

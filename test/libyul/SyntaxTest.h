@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
+// SPDX-License-Identifier: GPL-3.0
 
 #pragma once
 
@@ -29,10 +30,6 @@ class SyntaxTest: public solidity::test::CommonSyntaxTest
 {
 public:
 	static std::unique_ptr<TestCase> create(Config const& _config)
-	{
-		return std::make_unique<SyntaxTest>(_config.filename, _config.evmVersion);
-	}
-	static std::unique_ptr<TestCase> createErrorRecovery(Config const& _config)
 	{
 		return std::make_unique<SyntaxTest>(_config.filename, _config.evmVersion);
 	}

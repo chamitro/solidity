@@ -11,39 +11,44 @@ object "a" {
     data "data1" "Hello, World!"
   }
 }
+// ====
+// EVMVersion: >=shanghai
 // ----
 // Assembly:
-//     /* "source":26:73   */
+//     /* "source":77:92   */
 //   dataSize(sub_0)
+//     /* "source":58:75   */
 //   dataOffset(sub_0)
-//     /* "source":35:36   */
+//     /* "source":55:56   */
 //   0x00
-//     /* "source":26:73   */
+//     /* "source":46:93   */
 //   codecopy
-//     /* "source":78:104   */
+//     /* "source":116:131   */
 //   dataSize(sub_0)
-//     /* "source":85:86   */
+//     /* "source":113:114   */
 //   0x00
-//     /* "source":78:104   */
+//     /* "source":106:132   */
 //   return
 // stop
 //
 // sub_0: assembly {
-//         /* "source":143:171   */
+//         /* "source":223:240   */
 //       0x00
-//         /* "source":150:151   */
+//         /* "source":220:221   */
 //       0x00
-//         /* "source":143:171   */
+//         /* "source":213:241   */
 //       sstore
-//         /* "source":178:206   */
+//         /* "source":268:285   */
 //       0x0d
-//         /* "source":185:186   */
+//         /* "source":265:266   */
 //       0x00
-//         /* "source":178:206   */
+//         /* "source":258:286   */
 //       mstore
+//         /* "source":181:310   */
+//       stop
 //     stop
 //     data_acaf3289d7b601cbd114fb36c4d29c85bbfd5e133f14cb355c3fd8d99367964f 48656c6c6f2c20576f726c6421
 // }
-// Bytecode: 600b600d600039600b6000f3fe6000600055600d600052fe
-// Opcodes: PUSH1 0xB PUSH1 0xD PUSH1 0x0 CODECOPY PUSH1 0xB PUSH1 0x0 RETURN INVALID PUSH1 0x0 PUSH1 0x0 SSTORE PUSH1 0xD PUSH1 0x0 MSTORE INVALID
-// SourceMappings: 26:47:0:-:0;;35:1;26:47;78:26;85:1;78:26
+// Bytecode: 6009600b5f3960095ff3fe5f5f55600d5f5200fe
+// Opcodes: PUSH1 0x9 PUSH1 0xB PUSH0 CODECOPY PUSH1 0x9 PUSH0 RETURN INVALID PUSH0 PUSH0 SSTORE PUSH1 0xD PUSH0 MSTORE STOP INVALID
+// SourceMappings: 77:15:0:-:0;58:17;55:1;46:47;116:15;113:1;106:26
