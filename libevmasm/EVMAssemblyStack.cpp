@@ -103,6 +103,25 @@ std::string const* EVMAssemblyStack::runtimeSourceMapping(std::string const& _co
 	return &m_runtimeSourceMapping;
 }
 
+Json EVMAssemblyStack::ethdebug(std::string const& _contractName) const
+{
+	solAssert(_contractName == m_name);
+	solAssert(m_ethdebug != nullptr);
+	return *m_ethdebug;
+}
+
+Json EVMAssemblyStack::ethdebugRuntime(std::string const& _contractName) const
+{
+	solAssert(_contractName == m_name);
+	solAssert(m_ethdebugRuntime != nullptr);
+	return *m_ethdebugRuntime;
+}
+
+Json EVMAssemblyStack::ethdebug() const
+{
+	return {};
+}
+
 Json EVMAssemblyStack::assemblyJSON(std::string const& _contractName) const
 {
 	solAssert(_contractName == m_name);

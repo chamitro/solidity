@@ -27,9 +27,7 @@
 
 #include <libevmasm/Assembly.h>
 
-#include <liblangutil/SourceReferenceFormatter.h>
-
-#include <libsolutil/AnsiColorized.h>
+#include <libsolutil/CommonIO.h>
 
 using namespace solidity;
 using namespace solidity::test;
@@ -46,7 +44,6 @@ EVMCodeTransformTest::EVMCodeTransformTest(std::string const& _filename):
 	m_source = m_reader.source();
 	m_stackOpt = m_reader.boolSetting("stackOptimization", false);
 	m_expectation = m_reader.simpleExpectations();
-	m_shouldRun = CommonOptions::get().evmDialect().evmVersion() == EVMVersion{};
 }
 
 TestCase::TestResult EVMCodeTransformTest::run(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted)
@@ -56,32 +53,29 @@ TestCase::TestResult EVMCodeTransformTest::run(std::ostream& _stream, std::strin
 	settings.optimizeStackAllocation = m_stackOpt;
 	// Restrict to a single EVM/EOF version combination (the default one) as code generation
 	// can be different from version to version.
-	YulStack stack(
-		EVMVersion{},
-		std::nullopt,
+	YulStack yulStack(
+		CommonOptions::get().evmVersion(),
+		CommonOptions::get().eofVersion(),
 		YulStack::Language::StrictAssembly,
 		settings,
-		DebugInfoSelection::All()
+		DebugInfoSelection::AllExceptExperimental()
 	);
-	if (!stack.parseAndAnalyze("", m_source))
+	yulStack.parseAndAnalyze("", m_source);
+	if (yulStack.hasErrors())
 	{
-		AnsiColorized(_stream, _formatted, {formatting::BOLD, formatting::RED}) << _linePrefix << "Error parsing source." << std::endl;
-		SourceReferenceFormatter{_stream, stack, true, false}
-			.printErrorInformation(stack.errors());
+		printYulErrors(yulStack, _stream, _linePrefix, _formatted);
 		return TestResult::FatalError;
 	}
 
-	evmasm::Assembly assembly{CommonOptions::get().evmVersion(), false, std::nullopt, {}};
+	evmasm::Assembly assembly{CommonOptions::get().evmVersion(), false, CommonOptions::get().eofVersion(), {}};
 	EthAssemblyAdapter adapter(assembly);
 	EVMObjectCompiler::compile(
-		*stack.parserResult(),
+		*yulStack.parserResult(),
 		adapter,
 		m_stackOpt
 	);
 
-	std::ostringstream output;
-	output << assembly;
-	m_obtainedResult = output.str();
+	m_obtainedResult = toString(assembly);
 
 	return checkResult(_stream, _linePrefix, _formatted);
 }

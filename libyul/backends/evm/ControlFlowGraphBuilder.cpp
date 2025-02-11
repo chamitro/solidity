@@ -26,7 +26,6 @@
 #include <libyul/ControlFlowSideEffectsCollector.h>
 #include <libyul/backends/evm/EVMDialect.h>
 
-#include <libsolutil/cxx20.h>
 #include <libsolutil/Visitor.h>
 #include <libsolutil/Algorithms.h>
 
@@ -52,12 +51,23 @@ namespace
 /// Removes edges to blocks that are not reachable.
 void cleanUnreachable(CFG& _cfg)
 {
+	// If operation is a function call it adds the callee entry as child
+	auto const addFunctionsEntries = [&_cfg](CFG::BasicBlock* _node, auto&& _addChild)
+	{
+		for (auto const& operation: _node->operations)
+		{
+			if (auto const* functionCall = std::get_if<CFG::FunctionCall>(&operation.operation))
+			{
+				auto const functionInfo = _cfg.functionInfo.at(&(functionCall->function.get()));
+				_addChild(functionInfo.entry);
+			}
+		}
+	};
+
 	// Determine which blocks are reachable from the entry.
 	util::BreadthFirstSearch<CFG::BasicBlock*> reachabilityCheck{{_cfg.entry}};
-	for (auto const& functionInfo: _cfg.functionInfo | ranges::views::values)
-		reachabilityCheck.verticesToTraverse.emplace_back(functionInfo.entry);
-
 	reachabilityCheck.run([&](CFG::BasicBlock* _node, auto&& _addChild) {
+		addFunctionsEntries(_node, _addChild);
 		visit(util::GenericVisitor{
 			[&](CFG::BasicBlock::Jump const& _jump) {
 				_addChild(_jump.target);
@@ -74,9 +84,19 @@ void cleanUnreachable(CFG& _cfg)
 
 	// Remove all entries from unreachable nodes from the graph.
 	for (CFG::BasicBlock* node: reachabilityCheck.visited)
-		cxx20::erase_if(node->entries, [&](CFG::BasicBlock* entry) -> bool {
+		std::erase_if(node->entries, [&](CFG::BasicBlock* entry) -> bool {
 			return !reachabilityCheck.visited.count(entry);
 		});
+
+	// Remove functions which are never referenced.
+	_cfg.functions.erase(std::remove_if(_cfg.functions.begin(), _cfg.functions.end(), [&](auto const& item) {
+		return !reachabilityCheck.visited.count(_cfg.functionInfo.at(item).entry);
+	}), _cfg.functions.end());
+
+	// Remove functionInfos which are never referenced.
+	std::erase_if(_cfg.functionInfo, [&](auto const& entry) -> bool {
+		return !reachabilityCheck.visited.count(entry.second.entry);
+	});
 }
 
 /// Sets the ``recursive`` member to ``true`` for all recursive function calls.
@@ -364,7 +384,7 @@ void ControlFlowGraphBuilder::operator()(Switch const& _switch)
 	auto makeValueCompare = [&](Case const& _case) {
 		yul::FunctionCall const& ghostCall = m_graph.ghostCalls.emplace_back(yul::FunctionCall{
 			debugDataOf(_case),
-			yul::Identifier{{}, "eq"_yulname},
+			BuiltinName{{}, *equalityBuiltinHandle},
 			{*_case.value, Identifier{{}, ghostVariableName}}
 		});
 		BuiltinFunction const& equalityBuiltin = m_dialect.builtin(*equalityBuiltinHandle);

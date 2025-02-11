@@ -273,6 +273,7 @@ YulStack::assembleWithDeployed(std::optional<std::string_view> _deployName)
 				{{m_charStream->name(), 0}}
 			);
 		}
+		creationObject.ethdebug["not yet implemented @ MachineAssemblyObject::ethdebug"] = true;
 
 		if (deployedAssembly)
 		{
@@ -286,6 +287,11 @@ YulStack::assembleWithDeployed(std::optional<std::string_view> _deployName)
 					)
 			);
 		}
+	}
+	catch (Error const& _error)
+	{
+		m_errorReporter.codeGenerationError(_error);
+		return {MachineAssemblyObject{}, MachineAssemblyObject{}};
 	}
 	catch (UnimplementedFeatureError const& _error)
 	{
@@ -344,6 +350,11 @@ YulStack::assembleEVMWithDeployed(std::optional<std::string_view> _deployName)
 			return {std::make_shared<evmasm::Assembly>(assembly), std::make_shared<evmasm::Assembly>(runtimeAssembly)};
 		}
 	}
+	catch (Error const& _error)
+	{
+		m_errorReporter.codeGenerationError(_error);
+		return {nullptr, nullptr};
+	}
 	catch (UnimplementedFeatureError const& _error)
 	{
 		reportUnimplementedFeatureError(_error);
@@ -358,7 +369,7 @@ std::string YulStack::print() const
 	yulAssert(m_stackState >= Parsed);
 	yulAssert(m_parserResult, "");
 	yulAssert(m_parserResult->hasCode(), "");
-	return m_parserResult->toString(
+	return (m_debugInfoSelection.ethdebug ? "/// ethdebug: enabled\n" : "") + m_parserResult->toString(
 		m_debugInfoSelection,
 		m_soliditySourceProvider
 	) + "\n";
@@ -370,6 +381,17 @@ Json YulStack::astJson() const
 	yulAssert(m_parserResult, "");
 	yulAssert(m_parserResult->hasCode(), "");
 	return  m_parserResult->toJson();
+}
+
+Json YulStack::ethdebug() const
+{
+	yulAssert(m_parserResult, "");
+	yulAssert(m_parserResult->hasCode(), "");
+	yulAssert(m_parserResult->analysisInfo, "");
+
+	Json result = Json::object();
+	result["sources"] = Json::array({m_charStream->name()});
+	return result;
 }
 
 Json YulStack::cfgJson() const
@@ -399,7 +421,7 @@ Json YulStack::cfgJson() const
 				subObjectsJson[subObject->name] = exportCFGFromObject(*subObject);
 				subObjectsJson["type"] = "subObject";
 				if (!subObject->subObjects.empty())
-					subObjectsJson["subObjects"] = exportCFGFromSubObjects(subObject->subObjects);
+					subObjectsJson[subObject->name]["subObjects"] = exportCFGFromSubObjects(subObject->subObjects);
 			}
 		return subObjectsJson;
 	};
@@ -408,7 +430,8 @@ Json YulStack::cfgJson() const
 	Json jsonObject = Json::object();
 	jsonObject[object.name] = exportCFGFromObject(object);
 	jsonObject["type"] = "Object";
-	jsonObject["subObjects"] = exportCFGFromSubObjects(object.subObjects);
+	if (!object.subObjects.empty())
+		jsonObject[object.name]["subObjects"] = exportCFGFromSubObjects(object.subObjects);
 	return jsonObject;
 }
 
@@ -420,8 +443,18 @@ std::shared_ptr<Object> YulStack::parserResult() const
 	return m_parserResult;
 }
 
+Dialect const& YulStack::dialect() const
+{
+	yulAssert(m_stackState >= AnalysisSuccessful);
+	yulAssert(m_parserResult && m_parserResult->dialect());
+	return *m_parserResult->dialect();
+}
+
 void YulStack::reportUnimplementedFeatureError(UnimplementedFeatureError const& _error)
 {
+	yulAssert(m_charStream);
 	yulAssert(_error.comment(), "Errors must include a message for the user.");
+	if (_error.sourceLocation().sourceName)
+		yulAssert(*_error.sourceLocation().sourceName == m_charStream->name());
 	m_errorReporter.unimplementedFeatureError(1920_error, _error.sourceLocation(), *_error.comment());
 }

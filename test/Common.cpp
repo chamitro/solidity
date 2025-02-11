@@ -162,7 +162,7 @@ void CommonOptions::validate() const
 		std::cout << std::endl << "DO NOT COMMIT THE UPDATED EXPECTATIONS." << std::endl << std::endl;
 	}
 
-	assertThrow(!eofVersion().has_value() || evmVersion() >= langutil::EVMVersion::prague(), ConfigException, "EOF is unavailable before Prague fork.");
+	assertThrow(!eofVersion().has_value() || evmVersion().supportsEOF(), ConfigException, "EOF is unavailable before Osaka fork.");
 }
 
 bool CommonOptions::parse(int argc, char const* const* argv)
@@ -300,6 +300,13 @@ bool isValidSemanticTestPath(boost::filesystem::path const& _testPath)
 			return false;
 	}
 	return true;
+}
+
+boost::unit_test::precondition::predicate_t nonEOF()
+{
+	return [](boost::unit_test::test_unit_id) {
+		return !solidity::test::CommonOptions::get().eofVersion().has_value();
+	};
 }
 
 boost::unit_test::precondition::predicate_t minEVMVersionCheck(langutil::EVMVersion _minEVMVersion)

@@ -779,15 +779,11 @@ bool CompilerStack::compile(State _stopAfter)
 					}
 					catch (Error const& _error)
 					{
-						// Since codegen has no access to the error reporter, the only way for it to
-						// report an error is to throw. In most cases it uses dedicated exceptions,
-						// but CodeGenerationError is one case where someone decided to just throw Error.
-						solAssert(_error.type() == Error::Type::CodeGenerationError);
-						m_errorReporter.error(_error.errorId(), _error.type(), SourceLocation(), _error.what());
+						reportCodeGenerationError(_error, contract);
 					}
 					catch (UnimplementedFeatureError const& _error)
 					{
-						reportUnimplementedFeatureError(_error);
+						reportUnimplementedFeatureError(_error, contract);
 					}
 
 					if (m_errorReporter.hasErrors())
@@ -1185,6 +1181,39 @@ Json CompilerStack::interfaceSymbols(std::string const& _contractName) const
 	return interfaceSymbols;
 }
 
+Json CompilerStack::ethdebug() const
+{
+	solAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
+	solAssert(!m_contracts.empty());
+	Json result = Json::object();
+	result["sources"] = sourceNames();
+	return result;
+}
+
+Json CompilerStack::ethdebug(std::string const& _contractName) const
+{
+	return ethdebug(contract(_contractName), /* runtime */ false);
+}
+
+Json CompilerStack::ethdebugRuntime(std::string const& _contractName) const
+{
+	return ethdebug(contract(_contractName), /* runtime */ true);
+}
+
+Json CompilerStack::ethdebug(Contract const& _contract, bool _runtime) const
+{
+	solAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
+	solAssert(_contract.contract);
+	solUnimplementedAssert(!isExperimentalSolidity());
+	if (_runtime)
+	{
+		Json result = Json::object();
+		return result;
+	}
+	Json result = Json::object();
+	return result;
+}
+
 bytes CompilerStack::cborMetadata(std::string const& _contractName, bool _forIR) const
 {
 	solAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
@@ -1506,7 +1535,12 @@ void CompilerStack::compileContract(
 
 	Contract& compiledContract = m_contracts.at(_contract.fullyQualifiedName());
 
-	std::shared_ptr<Compiler> compiler = std::make_shared<Compiler>(m_evmVersion, m_revertStrings, m_optimiserSettings);
+	std::shared_ptr<Compiler> compiler = std::make_shared<Compiler>(
+		m_evmVersion,
+		m_eofVersion,
+		m_revertStrings,
+		m_optimiserSettings
+	);
 
 	solAssert(!m_viaIR, "");
 	bytes cborEncodedMetadata = createCBORMetadata(compiledContract, /* _forIR */ false);
@@ -1618,7 +1652,7 @@ void CompilerStack::generateEVMFromIR(ContractDefinition const& _contract)
 	if (stack.hasErrors())
 	{
 		for (std::shared_ptr<Error const> const& error: stack.errors())
-			reportIRPostAnalysisError(error.get());
+			reportIRPostAnalysisError(error.get(), compiledContract.contract);
 		return;
 	}
 
@@ -2014,18 +2048,47 @@ experimental::Analysis const& CompilerStack::experimentalAnalysis() const
 	return *m_experimentalAnalysis;
 }
 
-void CompilerStack::reportUnimplementedFeatureError(UnimplementedFeatureError const& _error)
+void CompilerStack::reportUnimplementedFeatureError(
+	UnimplementedFeatureError const& _error,
+	ContractDefinition const* _contractDefinition
+)
 {
 	solAssert(_error.comment(), "Errors must include a message for the user.");
+	if (_error.sourceLocation().sourceName)
+		solAssert(m_sources.count(*_error.sourceLocation().sourceName) != 0);
 
-	m_errorReporter.unimplementedFeatureError(1834_error, _error.sourceLocation(), *_error.comment());
+	m_errorReporter.unimplementedFeatureError(
+		1834_error,
+		(_error.sourceLocation().sourceName || !_contractDefinition) ?
+			_error.sourceLocation() :
+			_contractDefinition->location(),
+		*_error.comment()
+	);
 }
 
-void CompilerStack::reportIRPostAnalysisError(Error const* _error)
+void CompilerStack::reportCodeGenerationError(Error const& _error, ContractDefinition const* _contractDefinition)
+{
+	solAssert(_error.type() == Error::Type::CodeGenerationError);
+	solAssert(_error.comment(), "Errors must include a message for the user.");
+	if (_error.sourceLocation() && _error.sourceLocation()->sourceName)
+		solAssert(m_sources.count(*_error.sourceLocation()->sourceName) != 0);
+	solAssert(_contractDefinition);
+
+	m_errorReporter.codeGenerationError(
+		_error.errorId(),
+		(_error.sourceLocation() && _error.sourceLocation()->sourceName) ?
+			*_error.sourceLocation() :
+			_contractDefinition->location(),
+		*_error.comment()
+	);
+}
+
+void CompilerStack::reportIRPostAnalysisError(Error const* _error, ContractDefinition const* _contractDefinition)
 {
 	solAssert(_error);
 	solAssert(_error->comment(), "Errors must include a message for the user.");
 	solAssert(!_error->secondarySourceLocation());
+	solAssert(_contractDefinition);
 
 	// Do not report Yul warnings and infos. These are only reported in pure Yul compilation.
 	if (!Error::isError(_error->severity()))
@@ -2036,7 +2099,7 @@ void CompilerStack::reportIRPostAnalysisError(Error const* _error)
 		_error->type(),
 		// Ignore the original location. It's likely missing, but even if not, it points at Yul source.
 		// CompilerStack can only point at locations in Solidity sources.
-		SourceLocation{},
+		_contractDefinition->location(),
 		*_error->comment()
 	);
 }

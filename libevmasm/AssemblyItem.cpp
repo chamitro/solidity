@@ -249,7 +249,7 @@ size_t AssemblyItem::returnValues() const
 		return 1;
 	case JumpF:
 	case CallF:
-		return functionSignature().canContinue() ? functionSignature().retsNum : 0;
+		return functionSignature().retsNum;
 	case AssignImmutable:
 	case UndefinedItem:
 		break;
@@ -393,7 +393,7 @@ std::string AssemblyItem::toAssemblyText(Assembly const& _assembly) const
 		text = "eofcreate{" +  std::to_string(static_cast<size_t>(data())) + "}";
 		break;
 	case ReturnContract:
-		text = "returcontract{" +  std::to_string(static_cast<size_t>(data())) + "}";
+		text = "returncontract{" +  std::to_string(static_cast<size_t>(data())) + "}";
 		break;
 	case RelativeJump:
 		text = "rjump{" + std::string("tag_") + std::to_string(relativeJumpTagID()) + "}";

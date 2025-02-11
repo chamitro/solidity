@@ -120,7 +120,7 @@ std::string IRGenerator::generate(
 		);
 	};
 
-	Whiskers t(R"(
+	Whiskers t(R"(<?isEthdebugEnabled>/// ethdebug: enabled</isEthdebugEnabled>
 		/// @use-src <useSrcMapCreation>
 		object "<CreationObject>" {
 			code {
@@ -164,6 +164,7 @@ std::string IRGenerator::generate(
 	for (VariableDeclaration const* var: ContractType(_contract).immutableVariables())
 		m_context.registerImmutableVariable(*var);
 
+	t("isEthdebugEnabled", m_context.debugInfoSelection().ethdebug);
 	t("CreationObject", IRNames::creationObject(_contract));
 	t("sourceLocationCommentCreation", dispenseLocationComment(_contract));
 	t("library", _contract.isLibrary());
@@ -177,7 +178,10 @@ std::string IRGenerator::generate(
 			constructorParams.emplace_back(m_context.newYulVariable());
 		t(
 			"copyConstructorArguments",
-			m_utils.copyConstructorArgumentsToMemoryFunction(_contract, IRNames::creationObject(_contract))
+			m_utils.copyConstructorArgumentsToMemoryFunction(
+				_contract,
+				IRNames::creationObject(_contract)
+			)
 		);
 	}
 	t("constructorParams", joinHumanReadable(constructorParams));
@@ -768,7 +772,7 @@ std::string IRGenerator::generateExternalFunction(ContractDefinition const& _con
 		unsigned paramVars = std::make_shared<TupleType>(_functionType.parameterTypes())->sizeOnStack();
 		unsigned retVars = std::make_shared<TupleType>(_functionType.returnParameterTypes())->sizeOnStack();
 
-		ABIFunctions abiFunctions(m_evmVersion, m_context.revertStrings(), m_context.functionCollector());
+		ABIFunctions abiFunctions(m_evmVersion, m_eofVersion, m_context.revertStrings(), m_context.functionCollector());
 		t("abiDecode", abiFunctions.tupleDecoder(_functionType.parameterTypes()));
 		t("params",  suffixedVariableNameList("param_", 0, paramVars));
 		t("retParams",  suffixedVariableNameList("ret_", 0, retVars));

@@ -391,6 +391,18 @@ public:
 	/// @returns a JSON object with the three members ``methods``, ``events``, ``errors``. Each is a map, mapping identifiers (hashes) to function names.
 	Json interfaceSymbols(std::string const& _contractName) const;
 
+	/// @returns a JSON representing the ethdebug data of the specified contract.
+	/// Prerequisite: Successful call to parse or compile.
+	Json ethdebug(std::string const& _contractName) const override;
+
+	/// @returns a JSON representing the ethdebug data of the specified contract.
+	/// Prerequisite: Successful call to parse or compile.
+	Json ethdebugRuntime(std::string const& _contractName) const override;
+
+	/// @returns a JSON representing the top-level ethdebug data (types, etc.).
+	/// Prerequisite: Successful call to parse or compile.
+	Json ethdebug() const override;
+
 	/// @returns the Contract Metadata matching the pipeline selected using the viaIR setting.
 	std::string const& metadata(std::string const& _contractName) const { return metadata(contract(_contractName)); }
 
@@ -571,6 +583,11 @@ private:
 	/// This will generate the metadata and store it in the Contract object if it is not present yet.
 	std::string const& metadata(Contract const& _contract) const;
 
+	/// @returns the Contract ethdebug data.
+	/// This will generate the JSON object and store it in the Contract object if it is not present yet.
+	/// Prerequisite: Successful call to parse or compile.
+	Json ethdebug(Contract const& _contract, bool _runtime) const;
+
 	/// @returns the offset of the entry point of the given function into the list of assembly items
 	/// or zero if it is not found or does not exist.
 	size_t functionEntryPoint(
@@ -578,8 +595,12 @@ private:
 		FunctionDefinition const& _function
 	) const;
 
-	void reportUnimplementedFeatureError(langutil::UnimplementedFeatureError const& _error);
-	void reportIRPostAnalysisError(langutil::Error const* _error);
+	void reportUnimplementedFeatureError(
+		langutil::UnimplementedFeatureError const& _error,
+		ContractDefinition const* _contractDefinition = nullptr
+	);
+	void reportCodeGenerationError(langutil::Error const& _error, ContractDefinition const* _contractDefinition);
+	void reportIRPostAnalysisError(langutil::Error const* _error, ContractDefinition const* _contractDefinition);
 
 	ReadCallback::Callback m_readFile;
 	OptimiserSettings m_optimiserSettings;
